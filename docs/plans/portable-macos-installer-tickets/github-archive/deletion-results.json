@@ -1,0 +1,7 @@
+[
+  {
+    "number": 98,
+    "exit_code": 1,
+    "output": "GraphQL: Unauthorized: As an Enterprise Managed User, you cannot access this content (deleteIssue)\n"
+  }
+]
