@@ -1,6 +1,6 @@
 # Portable Mac installer tickets
 
-The specification and tickets are maintained in this repository. GitHub issues #88–#98 were requested for deletion; deletion is currently blocked by GitHub authorization. This move does not mark any implementation work complete.
+The specification and tickets are maintained in this repository. GitHub issues #88–#98 were deleted on 2026-09-11 using the owner’s `maralcbr` account; the repository is now the source of truth. This move does not mark any implementation work complete.
 
 - [Specification](../portable-macos-installer-spec.md)
 - [Implementation plan](../portable-macos-installer-plan.md)
@@ -22,4 +22,4 @@ The specification and tickets are maintained in this repository. GitHub issues #
 
 The `github-archive` directory preserves the exact issue bodies, original states, labels, assignees, comments, timestamps and publication dependency mapping captured before deletion on 2026-09-11. There were no issue comments. Historical GitHub URLs in that archive are provenance, not active work links. The specification also retains the owner’s newer local clarification to preserve the existing installer UI.
 
-Deletion of #98 was rejected by GitHub: `GraphQL: Unauthorized: As an Enterprise Managed User, you cannot access this content (deleteIssue)`. No issues were deleted. An account authorized to delete these issues must finish the GitHub cleanup. See `github-archive/deletion-results.json`.
+The initial attempt used the wrong account and was rejected. After switching to `maralcbr`, all eleven deletions succeeded and their absence was verified. Unrelated issues were left untouched. See `github-archive/deletion-results.json`.
