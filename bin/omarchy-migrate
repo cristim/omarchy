@@ -144,6 +144,7 @@ asahi_migration_disposition() {
     1788745941.sh) printf 'run\treviewed architecture-neutral Kitty local-socket security repair preserving custom settings\n' ;;
     1788848726.sh) printf 'run\treviewed architecture-neutral retirement of the exact legacy icon font\n' ;;
     1788486400.sh) printf 'run\treviewed default package parity install; every package is built for aarch64\n' ;;
+    1789107528.sh) printf 'run\treviewed initramfs static device node ordering; self-gating to Apple Silicon hardware\n' ;;
     *) return 1 ;;
   esac
 }
