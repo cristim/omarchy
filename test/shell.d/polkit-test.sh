@@ -29,6 +29,26 @@ assertEqual(
   'polkit names the target user for pkexec --user'
 )
 assertEqual(
+  request("Authentication is needed to run `/usr/bin/sh -c true\n\n\n\nrm -rf /etc' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/sh', args: '-c true\\n\\n\\n\\nrm -rf /etc' }),
+  'polkit shows line breaks in the pkexec command as escapes'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/sh -c echo \u202ecte/ fr- mr' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/sh', args: '-c echo \\u202ecte/ fr- mr' }),
+  'polkit shows bidi controls in the pkexec command as escapes'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/id' as user \u202etoor (mallory)"),
+  JSON.stringify({ title: 'Run as \\u202etoor (mallory)', program: '/usr/bin/id', args: '' }),
+  'polkit shows bidi controls in the target user as escapes'
+)
+assertEqual(
+  polkit.authorizationRequest("Authentication is needed to run `/usr/bin/id' as user a$&b", (key, english) => english).title,
+  'Run as a$&b',
+  'polkit does not expand replacement patterns in the target user'
+)
+assertEqual(
   request('Authentication is required to change system settings'),
   JSON.stringify({ title: 'Authentication is required to change system settings', program: '', args: '' }),
   'polkit preserves custom authorization messages'
