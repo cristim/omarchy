@@ -104,6 +104,14 @@ sudo -n systemctl enable --now bluetooth   # fails: a password is required
 pkexec systemctl enable --now bluetooth    # user authorizes via polkit prompt
 ```
 
+`pkexec` is not a drop-in `sudo`: it runs the command in root's home directory
+with a minimal environment, so use absolute paths and do not rely on the
+current directory or exported variables.
+
+If `pkexec` exits with 126 (the user dismissed the prompt) or 127 (not
+authorized, or no polkit agent is running), stop and tell the user. Do not
+retry the command or look for another way to gain privileges.
+
 ## System Architecture
 
 Omarchy is built on:
