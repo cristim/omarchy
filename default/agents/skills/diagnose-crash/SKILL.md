@@ -53,7 +53,7 @@ that it is actually implicated.
 
 ## Symbolize when you can
 
-This is Arch, which runs a public debuginfod server:
+On x86_64 this is Arch, which runs a public debuginfod server:
 
 ```bash
 core=$(mktemp -t crash-XXXXXX.core)
@@ -63,6 +63,22 @@ DEBUGINFOD_URLS="https://debuginfod.archlinux.org" \
   gdb -q <executable> "$core" \
   -batch -ex 'set debuginfod enabled on' -ex 'bt'
 ```
+
+On aarch64, including Apple Silicon, that server does not help. Arch publishes
+debug symbols for its own x86_64 builds only, and packages here come from Arch
+Linux ARM and the Omarchy Apple Silicon repository, neither of which runs a
+debuginfod server or ships debug packages for the common libraries. Check the
+build ID of the library in the crashing frame before trying:
+
+```bash
+readelf -n <library> | awk '/Build ID/ { print $3 }'
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "https://debuginfod.archlinux.org/buildid/<build-id>/debuginfo"
+```
+
+A 404 means no server has symbols for that build. Say so and work from the
+unsymbolized stack below; symbols would need a local rebuild of that package
+with debug enabled, installed before the crash recurs.
 
 A core is a verbatim copy of the process's memory and can hold passwords, tokens,
 and private documents. Write it to a fresh `mktemp` path rather than a predictable
