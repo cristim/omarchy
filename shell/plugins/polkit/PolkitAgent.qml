@@ -304,7 +304,9 @@ Item {
           color: Util.alpha(root.foreground, 0.06)
 
           // The program stays on the first line; its arguments follow on the
-          // same line when they fit and wrap below it when they don't.
+          // same line when they fit and wrap below it when they don't. The
+          // arguments are never cut off: this is what the user is approving,
+          // and pkexec already caps the command line at about 80 bytes.
           Flow {
             id: commandFlow
             x: Style.space(10)
@@ -332,8 +334,6 @@ Item {
               font.family: Style.fontFamily
               font.pixelSize: Style.font.body
               wrapMode: Text.WrapAnywhere
-              maximumLineCount: 4
-              elide: Text.ElideRight
             }
           }
         }
