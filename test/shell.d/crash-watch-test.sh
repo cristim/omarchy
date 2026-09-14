@@ -31,7 +31,10 @@ stub omarchy-notification-wait 'exit 0'
 # One argument per line, each send closed by a marker line.
 stub omarchy-notification-send 'printf "%s\n" "$@" @@ >>"$OMARCHY_TEST_SENT"'
 
-OMARCHY_TEST_JOURNAL="$tmpdir/journal" OMARCHY_TEST_SENT="$sent" PATH="$tmpdir:$PATH" \
+# A HOME of its own, so a program the developer muted can't hide a crash here,
+# and the checkout's helpers ahead of any installed copy.
+mkdir -p "$tmpdir/home"
+OMARCHY_TEST_JOURNAL="$tmpdir/journal" OMARCHY_TEST_SENT="$sent" HOME="$tmpdir/home" PATH="$tmpdir:$ROOT/bin:$PATH" \
   "$ROOT/bin/omarchy-crash-watch"
 
 sends=$(grep -cFx @@ "$sent" || true)
