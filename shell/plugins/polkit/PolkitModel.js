@@ -17,6 +17,19 @@ function fingerprintConfiguredFromPamConfig(raw) {
   return false
 }
 
+// pkexec joins the command line without escaping it, so its arguments (and the
+// target user's name) can carry line breaks that push the rest of the command
+// out of view, or bidi controls that reorder it on screen. Show those
+// characters as escapes rather than letting them shape what the prompt shows.
+function visibleText(text) {
+  return String(text).replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g, function(c) {
+    if (c === "\n") return "\\n"
+    if (c === "\t") return "\\t"
+    if (c === "\r") return "\\r"
+    return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4)
+  })
+}
+
 function authorizationRequest(message) {
   var text = String(message || "")
   // pkexec's message: "Authentication is needed to run `CMD' as the super user"
@@ -30,9 +43,9 @@ function authorizationRequest(message) {
   if (!command) return { title: text, program: "", args: "" }
 
   return {
-    title: match[2] ? "Run as root" : "Run as " + match[3],
-    program: command[1],
-    args: command[2]
+    title: match[2] ? "Run as root" : "Run as " + visibleText(match[3]),
+    program: visibleText(command[1]),
+    args: visibleText(command[2])
   }
 }
 
