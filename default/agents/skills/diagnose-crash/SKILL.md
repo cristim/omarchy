@@ -64,21 +64,27 @@ DEBUGINFOD_URLS="https://debuginfod.archlinux.org" \
   -batch -ex 'set debuginfod enabled on' -ex 'bt'
 ```
 
-On aarch64, including Apple Silicon, that server does not help. Arch publishes
+On aarch64, including Apple Silicon, that server rarely helps. Arch publishes
 debug symbols for its own x86_64 builds only, and packages here come from Arch
-Linux ARM and the Omarchy Apple Silicon repository, neither of which runs a
-debuginfod server or ships debug packages for the common libraries. Check the
-build ID of the library in the crashing frame before trying:
+Linux ARM and the Omarchy Apple Silicon repository. Neither runs a debuginfod
+server, and Arch Linux ARM ships only a handful of incidental `-debug` packages,
+none of them for the common libraries. Check the build ID of the library in the
+crashing frame, whether its symbols are already installed locally, and whether
+a debug package exists for its owner:
 
 ```bash
-readelf -n <library> | awk '/Build ID/ { print $3 }'
+id=$(readelf -n <library> | awk '/Build ID/ { print $3 }')
+ls "/usr/lib/debug/.build-id/${id:0:2}/${id:2}.debug"
+pacman -Ssq "^$(pacman -Qoq <library>)-debug$"
 curl -s -o /dev/null -w '%{http_code}\n' \
-  "https://debuginfod.archlinux.org/buildid/<build-id>/debuginfo"
+  "https://debuginfod.archlinux.org/buildid/$id/debuginfo"
 ```
 
-A 404 means no server has symbols for that build. Say so and work from the
-unsymbolized stack below; symbols would need a local rebuild of that package
-with debug enabled, installed before the crash recurs.
+The `curl` only asks Arch's server, so a 404 means that server has no symbols
+for this build, not that none exist anywhere. When all three checks come up
+empty, say so and work from the unsymbolized stack below; symbols would need a
+local rebuild of that package with debug enabled, installed before the crash
+recurs.
 
 A core is a verbatim copy of the process's memory and can hold passwords, tokens,
 and private documents. Write it to a fresh `mktemp` path rather than a predictable
