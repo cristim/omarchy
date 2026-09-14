@@ -1992,6 +1992,9 @@ Panel {
         anchors.bottomMargin: Style.spacing.rowGap / 2
         anchors.rightMargin: Style.space(6)
         password: !root.passwordRevealed
+        // Qt only asks the input method not to learn or predict what's typed
+        // while the text is masked, so keep asking once it is revealed.
+        inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
         placeholderText: "Passphrase"
         font.family: Style.font.family
         font.pixelSize: Style.font.body
