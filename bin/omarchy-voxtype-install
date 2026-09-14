@@ -24,8 +24,11 @@ if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
       exit 1
     fi
 
+    if ! omarchy-pkg-aur-add voxtype; then
+      gum style --foreground 1 "Building Voxtype from source failed. The build output above shows why."
+      exit 1
+    fi
     omarchy-pkg-add wtype
-    omarchy-pkg-aur-add voxtype
   fi
 
   # Setup voxtype

@@ -40,6 +40,12 @@ echo "$cmd:\$*" >>"\$TEST_LOG"
 EOF
 done
 
+cat >"$test_bin/omarchy-pkg-aur-add" <<'EOF'
+#!/bin/bash
+echo "omarchy-pkg-aur-add:$*" >>"$TEST_LOG"
+exit "${AUR_BUILD_STATUS:-0}"
+EOF
+
 cat >"$test_bin/omarchy-pkg-aur-accessible" <<'EOF'
 #!/bin/bash
 exit "${AUR_ACCESSIBLE:-0}"
@@ -68,12 +74,12 @@ chmod +x "$test_bin/"*
 
 install_status=0
 run_install() {
-  local arch=$1 answers=$2 aur_accessible=${3:-0}
+  local arch=$1 answers=$2 aur_accessible=${3:-0} aur_build_status=${4:-0}
   : >"$log_file"
   printf '%s\n' $answers >"$confirm_queue"
   install_status=0
   HOME="$test_home" OMARCHY_PATH="$test_omarchy_path" PATH="$test_bin:$ROOT/bin:$PATH" \
-    TEST_LOG="$log_file" CONFIRM_QUEUE="$confirm_queue" AUR_ACCESSIBLE="$aur_accessible" \
+    TEST_LOG="$log_file" CONFIRM_QUEUE="$confirm_queue" AUR_ACCESSIBLE="$aur_accessible" AUR_BUILD_STATUS="$aur_build_status" \
     TEST_UNAME_M="$arch" bash "$ROOT/bin/omarchy-voxtype-install" >/dev/null || install_status=$?
 }
 
@@ -108,6 +114,13 @@ run_install aarch64 "yes yes" 1
 assert_status 1 "an unreachable AUR fails the install"
 grep -q '^omarchy-pkg-' "$log_file" && fail "an unreachable AUR installs nothing"
 pass "an unreachable AUR stops the aarch64 install before any package change"
+
+run_install aarch64 "yes yes" 0 1
+assert_status 1 "a failed source build fails the install"
+grep -qx 'omarchy-pkg-aur-add:voxtype' "$log_file" || fail "a failed source build was attempted"
+grep -q '^omarchy-pkg-add:' "$log_file" && fail "a failed source build leaves wtype uninstalled"
+grep -q '^voxtype:' "$log_file" && fail "a failed source build runs no Voxtype setup"
+pass "a failed aarch64 source build stops before wtype and Voxtype setup"
 
 run_install aarch64 "no"
 assert_status 0 "declining the install is not an error"
