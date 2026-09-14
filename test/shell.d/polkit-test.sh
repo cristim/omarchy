@@ -11,15 +11,43 @@ assert(polkit.promptLooksFingerprint('Swipe your finger'), 'polkit detects finge
 assert(polkit.promptLooksFingerprint('fprintd verification'), 'polkit detects fprint prompts')
 assert(!polkit.promptLooksFingerprint('Password:'), 'polkit ignores password prompts')
 
+const request = message => JSON.stringify(polkit.authorizationRequest(message))
+
 assertEqual(
-  polkit.authorizationLabel("Authentication is needed to run `/usr/bin/true' as the super user"),
-  "Authorize running '/usr/bin/true'",
-  'polkit shortens the standard pkexec message'
+  request("Authentication is needed to run `/usr/bin/true' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/true', args: '' }),
+  'polkit extracts a bare pkexec command'
 )
 assertEqual(
-  polkit.authorizationLabel('Authentication is required to change system settings'),
-  'Authentication is required to change system settings',
+  request("Authentication is needed to run `/usr/bin/bash -c echo 'it works' > /dev/null' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/bash', args: "-c echo 'it works' > /dev/null" }),
+  'polkit keeps quotes inside the pkexec command line'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/id -u' as user Jane Doe (jane)"),
+  JSON.stringify({ title: 'Run as Jane Doe (jane)', program: '/usr/bin/id', args: '-u' }),
+  'polkit names the target user for pkexec --user'
+)
+assertEqual(
+  request('Authentication is required to change system settings'),
+  JSON.stringify({ title: 'Authentication is required to change system settings', program: '', args: '' }),
   'polkit preserves custom authorization messages'
+)
+assertEqual(
+  request(''),
+  JSON.stringify({ title: 'Authentication is needed...', program: '', args: '' }),
+  'polkit titles an empty message with the generic prompt'
+)
+
+const translated = polkit.authorizationRequest(
+  "Authentication is needed to run `/usr/bin/id -u' as user jane",
+  key => ({ 'polkit.runAsUser': 'Ausführen als %1' })[key]
+)
+assertEqual(translated.title, 'Ausführen als jane', 'polkit translates the run-as title and fills the user')
+assertEqual(
+  polkit.authorizationRequest("Authentication is needed to run `/usr/bin/true' as the super user", (key, english) => 'T:' + english).title,
+  'T:Run as root',
+  'polkit routes the root title through the translator'
 )
 
 assert(

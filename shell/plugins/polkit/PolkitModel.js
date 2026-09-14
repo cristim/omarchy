@@ -17,17 +17,31 @@ function fingerprintConfiguredFromPamConfig(raw) {
   return false
 }
 
-function authorizationLabel(message, tr) {
+function authorizationRequest(message, tr) {
   var t = typeof tr === "function" ? tr : function(key, english) { return english }
   var text = String(message || "")
-  var match = text.match(/^Authentication is (?:needed|required) to run [`']([^`']+)[`'] as /i)
-  return match ? t("polkit.authorizeRunning", "Authorize running '%1'").replace("%1", match[1]) : text
+  if (!text) return { title: t("polkit.authenticationNeeded", "Authentication is needed..."), program: "", args: "" }
+  // pkexec's message: "Authentication is needed to run `CMD' as the super user"
+  // (or "... as user NAME"). CMD is pkexec's cmdline_short, which keeps any
+  // quotes the command itself contains, so anchor on the fixed tail instead of
+  // stopping at the next quote.
+  var match = text.match(/^Authentication is (?:needed|required) to run [`']([\s\S]+)[`'] as (?:(the super user)|user ([\s\S]+))$/i)
+  if (!match) return { title: text, program: "", args: "" }
+
+  var command = match[1].replace(/^\s+|\s+$/g, "").match(/^(\S+)\s*([\s\S]*)$/)
+  if (!command) return { title: text, program: "", args: "" }
+
+  return {
+    title: match[2] ? t("polkit.runAsRoot", "Run as root") : t("polkit.runAsUser", "Run as %1").replace("%1", match[3]),
+    program: command[1],
+    args: command[2]
+  }
 }
 
 if (typeof module !== "undefined") {
   module.exports = {
     promptLooksFingerprint: promptLooksFingerprint,
     fingerprintConfiguredFromPamConfig: fingerprintConfiguredFromPamConfig,
-    authorizationLabel: authorizationLabel
+    authorizationRequest: authorizationRequest
   }
 }
