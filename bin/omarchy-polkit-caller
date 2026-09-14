@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# omarchy:summary=Show which processes started a waiting pkexec
+# omarchy:args=<program>
+# omarchy:hidden=true
+
+# polkit tells its agent what pkexec wants to run but not who ran pkexec, so the
+# prompt asks this instead: the newest pkexec running <program>, and the chain of
+# processes above it, e.g. "omarchy-update ← bash ← foot".
+
+set -euo pipefail
+
+program=${1:?usage: omarchy-polkit-caller <program>}
+
+# The message shows the resolved path while pkexec's own argv keeps what the
+# caller typed, so a bare name matches too.
+pid=""
+while read -r candidate; do
+  mapfile -d '' -t argv 2>/dev/null <"/proc/$candidate/cmdline" || continue
+  for arg in "${argv[@]:1}"; do
+    if [[ $arg == "$program" || $arg == "${program##*/}" ]]; then
+      pid=$candidate
+      break 2
+    fi
+  done
+done < <(ps -o pid= --sort=-start_time -C pkexec)
+
+[[ -n $pid ]] || exit 1
+
+names=()
+current=$pid
+for _ in 1 2 3 4 5; do
+  stat=$(<"/proc/$current/stat") || break
+  # comm sits in parentheses and may hold spaces, so parse after the last one.
+  read -r _ ppid _ <<<"${stat##*) }"
+  (( ppid > 1 )) || break
+  current=$ppid
+
+  comm=$(<"/proc/$current/comm") || break
+  [[ $comm == "systemd" ]] && break
+
+  # comm is cut to 15 characters, which mangles most omarchy-* names, so name
+  # the process from its argv instead: a script's own name when an interpreter
+  # runs one (shebang scripts included), else the program's.
+  name=$comm
+  mapfile -d '' -t argv 2>/dev/null <"/proc/$current/cmdline" || argv=()
+  if [[ -n ${argv[0]:-} ]]; then
+    name=${argv[0]##*/}
+    case $name in
+    bash | sh | dash | zsh | fish | python* | perl | node)
+      [[ -n ${argv[1]:-} && ${argv[1]} != -* ]] && name=${argv[1]##*/}
+      ;;
+    esac
+  fi
+
+  if (( ${#names[@]} == 0 )) || [[ ${names[-1]} != "$name" ]]; then
+    names+=("$name")
+  fi
+done
+
+(( ${#names[@]} )) || exit 1
+
+chain=${names[0]}
+for name in "${names[@]:1}"; do
+  chain+=" ← $name"
+done
+echo "$chain"

@@ -57,6 +57,15 @@ Item {
   // fingerprint mode without a header collapses to a square that just frames
   // the centered sensor icon.
   readonly property int cardWidth: fingerprintMode && !hasHeader ? cardHeight : Math.min(Style.space(hasCommand ? 480 : 312), Math.max(Style.space(260), panel.width - Style.gapsOut * 2))
+  // Who ran pkexec, found locally, and what the default agent makes of the
+  // command. The agent is only asked when the user presses Tab or clicks, so
+  // no command line leaves the machine unprompted.
+  property string requestedBy: ""
+  property string agentName: ""
+  property string explanation: ""
+  property string explainError: ""
+  property bool explaining: false
+  readonly property bool canExplain: hasCommand && agentName !== ""
 
   function loadPamConfig(raw) {
     fingerprintConfigured = PolkitModel.fingerprintConfiguredFromPamConfig(raw)
@@ -66,7 +75,37 @@ Item {
     if (!laptopClosedProc.running) laptopClosedProc.running = true
   }
 
+  function lookUpContext() {
+    stopExplaining()
+    requestedBy = ""
+    agentName = ""
+    explanation = ""
+    explainError = ""
+    if (!hasCommand) return
+    callerProc.command = ["omarchy-polkit-caller", request.program]
+    callerProc.running = true
+    explainCheckProc.running = true
+  }
+
+  function explain() {
+    if (!canExplain || explaining || explanation !== "") return
+    explaining = true
+    explainError = ""
+    var command = request.args !== "" ? request.program + " " + request.args : request.program
+    explainProc.command = ["omarchy-agent-explain", command, requestedBy || "unknown", request.title]
+    explainProc.running = true
+  }
+
+  function stopExplaining() {
+    explaining = false
+    if (explainProc.running) explainProc.running = false
+  }
+
   function resetSnapshot() {
+    stopExplaining()
+    requestedBy = ""
+    explanation = ""
+    explainError = ""
     currentMessage = ""
     currentPrompt = ""
     currentSupplementary = ""
@@ -99,6 +138,7 @@ Item {
     passwordInput.text = ""
     refreshLidState()
     syncFromFlow()
+    lookUpContext()
     Qt.callLater(refocus)
   }
 
@@ -175,6 +215,33 @@ Item {
     command: ["bash", "-c", "omarchy-hw-laptop-closed && echo closed || echo open"]
     stdout: StdioCollector { id: laptopClosedOut; waitForEnd: true }
     onExited: root.laptopClosed = String(laptopClosedOut.text || "").trim() === "closed"
+  }
+
+  Process {
+    id: callerProc
+    stdout: StdioCollector { id: callerOut; waitForEnd: true }
+    onExited: function(exitCode) { root.requestedBy = exitCode === 0 ? String(callerOut.text || "").trim() : "" }
+  }
+
+  Process {
+    id: explainCheckProc
+    command: ["omarchy-agent-explain", "--check"]
+    stdout: StdioCollector { id: explainCheckOut; waitForEnd: true }
+    onExited: function(exitCode) { root.agentName = exitCode === 0 ? String(explainCheckOut.text || "").trim() : "" }
+  }
+
+  Process {
+    id: explainProc
+    stdout: StdioCollector { id: explainOut; waitForEnd: true }
+    stderr: StdioCollector { id: explainErr; waitForEnd: true }
+    onExited: function(exitCode) {
+      // Stopped because the prompt closed or moved on; nothing to show it in.
+      if (!root.explaining) return
+      root.explaining = false
+      var answer = String(explainOut.text || "").trim()
+      if (exitCode === 0 && answer !== "") root.explanation = answer
+      else root.explainError = String(explainErr.text || "").trim().split("\n").pop() || "The agent couldn't explain this command."
+    }
   }
 
   PolkitAgent {
@@ -268,6 +335,9 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.responseRequired) root.submitResponse()
             event.accepted = true
+          } else if (event.key === Qt.Key_Tab) {
+            root.explain()
+            event.accepted = true
           }
         }
       }
@@ -337,6 +407,61 @@ Item {
             }
           }
         }
+
+        Text {
+          textFormat: Text.PlainText
+          visible: root.hasCommand && root.requestedBy !== ""
+          width: parent.width
+          text: "Requested by " + root.requestedBy
+          color: root.foreground
+          opacity: 0.6
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.Wrap
+          maximumLineCount: 2
+          elide: Text.ElideRight
+        }
+
+        // The agent's answer is labeled as a guess: the command line it
+        // describes was written by whatever asked for root.
+        Text {
+          textFormat: Text.PlainText
+          visible: root.canExplain && root.explanation !== ""
+          width: parent.width
+          text: root.agentName + "'s guess, which may be wrong:"
+          color: root.foreground
+          opacity: 0.6
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          elide: Text.ElideRight
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          visible: root.canExplain
+          width: parent.width
+          text: (root.explaining ? "Asking " + root.agentName + "..."
+            : root.explanation !== "" ? root.explanation
+            : root.explainError !== "" ? root.explainError + " (Tab to retry)"
+            : "Press Tab to ask " + root.agentName + " what this does")
+          color: root.explainError !== "" ? Color.polkit.textError : (root.explanation !== "" ? root.foreground : root.accent)
+          opacity: root.explaining ? 0.6 : 1
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.Wrap
+          maximumLineCount: 8
+          elide: Text.ElideRight
+
+          MouseArea {
+            anchors.fill: parent
+            enabled: !root.explaining && root.explanation === ""
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: {
+              root.explain()
+              root.refocus()
+            }
+          }
+        }
       }
 
       // Fingerprint mode shows just the sensor icon in place of the field \u2014 no
@@ -399,6 +524,9 @@ Item {
             Keys.onPressed: function(event) {
               if (event.key === Qt.Key_Escape) {
                 root.cancelRequest()
+                event.accepted = true
+              } else if (event.key === Qt.Key_Tab) {
+                root.explain()
                 event.accepted = true
               }
             }
