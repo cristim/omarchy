@@ -15,6 +15,9 @@ BorderSurface {
   property string app: ""
   property string appIcon: ""
   property string summary: ""
+  // How many notifications a grouped toast stands for (see
+  // NotificationLogic.groupFromHints); shown after the summary past one.
+  property int groupCount: 1
   property string body: ""
   property string image: ""
   // Nerd Font glyph rendered in the icon slot when no real icon is set.
@@ -156,6 +159,8 @@ BorderSurface {
       ColumnLayout {
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
+        // Keep the first line clear of the hover-revealed close button.
+        Layout.rightMargin: Style.space(10)
         spacing: Style.space(2)
 
         Text {
@@ -166,7 +171,7 @@ BorderSurface {
           textFormat: Text.PlainText
           Layout.fillWidth: true
           visible: root.summary.length > 0
-          text: root.summary
+          text: NotificationLogic.groupedSummary(root.summary, root.groupCount)
           font.family: "Liberation Sans"
           color: Color.notifications.text
           font.pixelSize: Style.font.title
@@ -190,6 +195,36 @@ BorderSurface {
           maximumLineCount: 3
         }
       }
+    }
+  }
+
+  // Hover-revealed close. Stacked after mainColumn so its MouseArea sits
+  // above the full-card one and the click never reaches cardClicked.
+  Item {
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.topMargin: root.borderTop + Style.space(3)
+    anchors.rightMargin: root.borderRight + Style.space(3)
+    width: Style.space(18)
+    height: Style.space(18)
+    visible: opacity > 0
+    opacity: root.hovered ? 1 : 0
+
+    Behavior on opacity { NumberAnimation { duration: 100 } }
+
+    Text {
+      anchors.centerIn: parent
+      text: "✕"
+      color: closeArea.containsMouse ? Color.notifications.text : root.dimColor
+      font.pixelSize: Math.round(Style.font.caption * 1.44)
+    }
+
+    MouseArea {
+      id: closeArea
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.closeRequested()
     }
   }
 
