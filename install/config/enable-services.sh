@@ -29,7 +29,7 @@ if [[ -e /etc/systemd/system/omarchy-seamless-login.service ||
   fi
 fi
 systemctl enable sddm.service
-if [[ ${OMARCHY_MAC_IMAGE_BUILD:-} != 1 ]] && ! omarchy-hw-apple-silicon; then
+if [[ ${OMARCHY_MAC_IMAGE_BUILD:-} != 1 ]]; then
   # [Install] also enables the socket that reports app.slice candidacy.
   systemctl enable systemd-oomd.service
 fi
