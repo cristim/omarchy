@@ -37,15 +37,35 @@ function authorizationRequest(message) {
   // quotes the command itself contains, so anchor on the fixed tail instead of
   // stopping at the next quote.
   var match = text.match(/^Authentication is (?:needed|required) to run [`']([\s\S]+)[`'] as (?:(the super user)|user ([\s\S]+))$/i)
-  if (!match) return { title: text, program: "", args: "" }
+  if (!match) return { title: text, program: "", args: "", command: "" }
 
   var command = match[1].replace(/^\s+|\s+$/g, "").match(/^(\S+)\s*([\s\S]*)$/)
-  if (!command) return { title: text, program: "", args: "" }
+  if (!command) return { title: text, program: "", args: "", command: "" }
 
+  // command keeps the message's text exactly, unescaped and with empty and
+  // space-padded arguments, for matching against the waiting pkexec.
   return {
     title: match[2] ? "Run as root" : "Run as " + visibleText(match[3]),
     program: visibleText(command[1]),
-    args: visibleText(command[2])
+    args: visibleText(command[2]),
+    command: match[1]
+  }
+}
+
+// omarchy-polkit-caller's JSON: who started pkexec, and the full command it was
+// given, shell-quoted and already capped.
+function callerFromOutput(exitCode, output) {
+  var info = null
+  if (exitCode === 0) {
+    try {
+      info = JSON.parse(String(output || ""))
+    } catch (e) {}
+  }
+  info = info || {}
+  return {
+    requestedBy: typeof info.requestedBy === "string" ? info.requestedBy : "",
+    command: typeof info.command === "string" ? info.command : "",
+    shortened: info.shortened === true
   }
 }
 
@@ -53,6 +73,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     promptLooksFingerprint: promptLooksFingerprint,
     fingerprintConfiguredFromPamConfig: fingerprintConfiguredFromPamConfig,
-    authorizationRequest: authorizationRequest
+    authorizationRequest: authorizationRequest,
+    callerFromOutput: callerFromOutput
   }
 }
