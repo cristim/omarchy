@@ -1,26 +1,51 @@
 #!/bin/bash
 
-# omarchy:summary=Show which processes started the pkexec waiting on a password
-# omarchy:args=<program>
+# omarchy:summary=Print which processes started the pkexec waiting on a password, and its full command, as JSON
+# omarchy:args=<program> <shown-command>
 # omarchy:hidden=true
 
-# Quickshell's polkit agent passes on pkexec's message but not the pid polkit
-# sends with it, so the prompt asks this which processes started the pkexec
-# running <program>, e.g. "omarchy-update ← bash ← foot". Processes name
-# themselves, so that is a hint, not proof.
+# Which processes started the pkexec behind the polkit prompt, and its full
+# command. Processes name themselves, so the chain is a hint, not proof.
 
 set -euo pipefail
 
-program=${1:?usage: omarchy-polkit-caller <program>}
+program=${1:?usage: omarchy-polkit-caller <program> <shown-command>}
+shown=${2?usage: omarchy-polkit-caller <program> <shown-command>}
 proc_path=${OMARCHY_PROC_PATH:-/proc}
 
-# The program pkexec was given: the first argument after pkexec's own options.
-# A real pkexec has only a few, so a process padding its argv can't stall this.
-pkexec_program() {
-  local -a argv=()
-  mapfile -d '' -t argv 2>/dev/null <"$proc_path/$1/cmdline" || return 0
-  local i=1
-  while ((i < ${#argv[@]} && i < 16)); do
+# Whether pkexec's message could end the way the shown one does for this program
+# and its arguments: a relative program shows as an absolute path ending in it.
+ends_like_shown() {
+  local LC_ALL=C text
+  printf -v text '%s ' "$@"
+  text=${text% }
+  [[ $text == /* ]] || text=/$text
+  if ((${#text} > 37)); then
+    text=${text: -37}
+  fi
+  [[ $shown == *"$text" ]]
+}
+
+# The requester controls its pkexec's name, options and program, so every root
+# process for this user counts unless its command rules it out; two means none.
+candidate=""
+candidate_argv=()
+program_index=0
+for dir in "$proc_path"/[0-9]*; do
+  real="" effective=""
+  while read -r key uid euid _; do
+    if [[ $key == "Uid:" ]]; then
+      real=$uid
+      effective=$euid
+      break
+    fi
+  done 2>/dev/null <"$dir/status" || true
+  [[ $real == "$UID" && $effective == "0" ]] || continue
+
+  argv=()
+  mapfile -d '' -t argv 2>/dev/null <"$dir/cmdline" || continue
+  i=1
+  while ((i < ${#argv[@]})); do
     case ${argv[i]} in
     --user | -u) ((i += 2)) ;;
     --disable-internal-agent | --keep-cwd) ((i += 1)) ;;
@@ -28,14 +53,47 @@ pkexec_program() {
     esac
   done
   if ((i < ${#argv[@]})); then
-    printf '%s' "${argv[i]}"
+    given=${argv[i]:0:4096}
+    [[ $given != /* || $given == "$program"* ]] || continue
+    ends_like_shown "${argv[@]:i}" || continue
+  elif [[ $shown == *" "* ]]; then
+    # Without a program pkexec runs a shell, with no arguments to show.
+    continue
+  fi
+
+  if [[ -n $candidate ]]; then
+    exit 1
+  fi
+  candidate=${dir##*/}
+  candidate_argv=("${argv[@]}")
+  program_index=$i
+done
+
+if [[ -z $candidate ]] || ((program_index >= ${#candidate_argv[@]})); then
+  exit 1
+fi
+if [[ ${candidate_argv[program_index]} != "$program" && ${candidate_argv[program_index]} != "${program##*/}" ]]; then
+  exit 1
+fi
+arguments=("${candidate_argv[@]:program_index+1}")
+
+# pkexec's message joins the command with single spaces, with the program as
+# shown, and past 80 bytes keeps only the first 38 and last 37 around " ... ".
+shown_as() {
+  local LC_ALL=C
+  printf -v rendered '%s ' "$@"
+  rendered=${rendered% }
+  if ((${#rendered} > 80)); then
+    rendered="${rendered:0:38} ... ${rendered: -37}"
   fi
 }
+shown_as "$program" "${arguments[@]}"
+if [[ $rendered != "$shown" ]]; then
+  exit 1
+fi
 
-# The executable's name, or the script's when an interpreter runs one. Control,
-# line-separator, bidi and zero-width characters are dropped and long names cut,
-# so a name can't rearrange or push aside the rest of the line. Bash's pattern
-# expansions slow down badly on huge strings, so those are cut first.
+# The executable's or script's name without control, bidi or zero-width
+# characters; huge strings are cut first, since bash pattern expansions are slow.
 process_name() {
   local LC_ALL=C.UTF-8
   local dir=$proc_path/$1 name
@@ -66,41 +124,8 @@ process_name() {
   printf '%s' "$name"
 }
 
-# Only a pkexec running as root for this user counts. Any setuid program run
-# through a symlink named pkexec gets that name and euid 0, but its real uid is
-# still its caller's, so another account's process can't claim the prompt. Two
-# waiting for the same program could be either prompt, so that says nothing
-# rather than guess.
-match=""
-for dir in "$proc_path"/[0-9]*; do
-  { comm=$(<"$dir/comm"); } 2>/dev/null || continue
-  [[ $comm == "pkexec" ]] || continue
-
-  real="" effective=""
-  while read -r key uid euid _; do
-    if [[ $key == "Uid:" ]]; then
-      real=$uid
-      effective=$euid
-      break
-    fi
-  done 2>/dev/null <"$dir/status" || true
-  [[ $real == "$UID" && $effective == "0" ]] || continue
-
-  given=$(pkexec_program "${dir##*/}")
-  [[ $given == "$program" || $given == "${program##*/}" ]] || continue
-
-  if [[ -n $match ]]; then
-    exit 1
-  fi
-  match=${dir##*/}
-done
-
-if [[ -z $match ]]; then
-  exit 1
-fi
-
 names=()
-current=$match
+current=$candidate
 for _ in {1..5}; do
   { stat=$(<"$proc_path/$current/stat"); } 2>/dev/null || break
   # comm sits in parentheses and may hold spaces, so parse after the last one.
@@ -127,4 +152,25 @@ for name in "${names[@]}"; do
   requested_by+=${requested_by:+ ← }$name
 done
 
-printf '%s\n' "$requested_by"
+# Quoted in the C locale, so argument boundaries survive and anything
+# unprintable shows as an escape, and capped at 4000 bytes.
+quote_command() {
+  local LC_ALL=C arg quoted
+  command_text=""
+  shortened=false
+  for arg in "$program" "${arguments[@]}"; do
+    # Quoting a longer argument passes the cap below anyway.
+    arg=${arg:0:4096}
+    printf -v quoted '%q' "$arg"
+    command_text+=${command_text:+ }$quoted
+    if ((${#command_text} > 4000)); then
+      command_text=${command_text:0:4000}
+      shortened=true
+      break
+    fi
+  done
+}
+quote_command
+
+jq -cn --arg requestedBy "$requested_by" --arg command "$command_text" --argjson shortened "$shortened" \
+  '{requestedBy: $requestedBy, command: $command, shortened: $shortened}'

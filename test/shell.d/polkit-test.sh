@@ -15,29 +15,48 @@ const request = message => JSON.stringify(polkit.authorizationRequest(message))
 
 assertEqual(
   request("Authentication is needed to run `/usr/bin/true' as the super user"),
-  JSON.stringify({ title: 'Run as root', program: '/usr/bin/true', args: '' }),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/true', args: '', command: '/usr/bin/true' }),
   'polkit extracts a bare pkexec command'
 )
 assertEqual(
   request("Authentication is needed to run `/usr/bin/bash -c echo 'it works' > /dev/null' as the super user"),
-  JSON.stringify({ title: 'Run as root', program: '/usr/bin/bash', args: "-c echo 'it works' > /dev/null" }),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/bash', args: "-c echo 'it works' > /dev/null", command: "/usr/bin/bash -c echo 'it works' > /dev/null" }),
   'polkit keeps quotes inside the pkexec command line'
 )
 assertEqual(
   request("Authentication is needed to run `/usr/bin/id -u' as user Jane Doe (jane)"),
-  JSON.stringify({ title: 'Run as Jane Doe (jane)', program: '/usr/bin/id', args: '-u' }),
+  JSON.stringify({ title: 'Run as Jane Doe (jane)', program: '/usr/bin/id', args: '-u', command: '/usr/bin/id -u' }),
   'polkit names the target user for pkexec --user'
 )
 assertEqual(
   request('Authentication is required to change system settings'),
-  JSON.stringify({ title: 'Authentication is required to change system settings', program: '', args: '' }),
+  JSON.stringify({ title: 'Authentication is required to change system settings', program: '', args: '', command: '' }),
   'polkit preserves custom authorization messages'
 )
 assertEqual(
   request(''),
-  JSON.stringify({ title: '', program: '', args: '' }),
+  JSON.stringify({ title: '', program: '', args: '', command: '' }),
   'polkit handles an empty message'
 )
+
+assertEqual(
+  polkit.authorizationRequest("Authentication is needed to run `/usr/bin/printf  x ' as the super user").command,
+  '/usr/bin/printf  x ',
+  'polkit keeps the command text exactly, empty and space-padded arguments included'
+)
+
+const caller = (exitCode, output) => JSON.stringify(polkit.callerFromOutput(exitCode, output))
+const nobody = JSON.stringify({ requestedBy: '', command: '', shortened: false })
+
+assertEqual(
+  caller(0, JSON.stringify({ requestedBy: 'omarchy-update ← bash', command: "/usr/bin/bash -c 'rm -rf ~'", shortened: true })),
+  JSON.stringify({ requestedBy: 'omarchy-update ← bash', command: "/usr/bin/bash -c 'rm -rf ~'", shortened: true }),
+  'polkit reads who started pkexec and its full command'
+)
+assertEqual(caller(1, '{"requestedBy":"foot","command":"true"}'), nobody, 'polkit ignores a failed caller lookup')
+for (const output of ['', 'null', '42', '{not json', '{}', '{"requestedBy":42,"command":["true"],"shortened":"yes"}']) {
+  assertEqual(caller(0, output), nobody, `polkit ignores caller output ${JSON.stringify(output)}`)
+}
 
 assert(
   polkit.fingerprintConfiguredFromPamConfig(`
