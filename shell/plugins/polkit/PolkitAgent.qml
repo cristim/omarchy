@@ -38,6 +38,13 @@ Item {
   // to the password even when a sensor is enrolled. Refreshed per request.
   property bool laptopClosed: false
   property int shakeOffset: 0
+  // The processes that ran pkexec, found by omarchy-polkit-caller. Any process
+  // can name itself anything, so the prompt says the chain isn't verified.
+  property string requestedBy: ""
+  // Bumped per prompt and on close, so a lookup still finishing for an earlier
+  // prompt can't fill in this one.
+  property int promptSerial: 0
+  property int callerSerial: 0
 
   readonly property bool dialogVisible: polkitAgent.isActive || closing
   // We show one method at a time. Fingerprint owns the dialog while PAM is
@@ -66,7 +73,25 @@ Item {
     if (!laptopClosedProc.running) laptopClosedProc.running = true
   }
 
+  function lookUpCaller() {
+    promptSerial++
+    requestedBy = ""
+    // A lookup still running for an earlier prompt is stopped first, and
+    // onRunningChanged starts this one once it has.
+    if (callerProc.running) callerProc.running = false
+    else if (hasCommand) startCallerLookup()
+  }
+
+  function startCallerLookup() {
+    callerSerial = promptSerial
+    // Bounded, so a lookup stuck on a hung process can't hold up later prompts.
+    callerProc.command = ["timeout", "-k", "1", "2", "omarchy-polkit-caller", request.program, request.command]
+    callerProc.running = true
+  }
+
   function resetSnapshot() {
+    promptSerial++
+    requestedBy = ""
     currentMessage = ""
     currentPrompt = ""
     currentSupplementary = ""
@@ -99,6 +124,7 @@ Item {
     passwordInput.text = ""
     refreshLidState()
     syncFromFlow()
+    lookUpCaller()
     Qt.callLater(refocus)
   }
 
@@ -175,6 +201,16 @@ Item {
     command: ["bash", "-c", "omarchy-hw-laptop-closed && echo closed || echo open"]
     stdout: StdioCollector { id: laptopClosedOut; waitForEnd: true }
     onExited: root.laptopClosed = String(laptopClosedOut.text || "").trim() === "closed"
+  }
+
+  Process {
+    id: callerProc
+    stdout: StdioCollector { id: callerOut; waitForEnd: true }
+    onExited: function(exitCode) {
+      if (root.callerSerial === root.promptSerial) root.requestedBy = PolkitModel.callerFromOutput(exitCode, callerOut.text).requestedBy
+    }
+    // A new prompt arrived while an earlier lookup was still running.
+    onRunningChanged: if (!running && root.hasCommand && root.callerSerial !== root.promptSerial) root.startCallerLookup()
   }
 
   PolkitAgent {
@@ -336,6 +372,21 @@ Item {
               wrapMode: Text.WrapAnywhere
             }
           }
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          visible: root.requestedBy !== ""
+          width: parent.width
+          clip: true
+          text: "Not verified: requested by " + root.requestedBy
+          color: root.foreground
+          opacity: 0.6
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.Wrap
+          maximumLineCount: 2
+          elide: Text.ElideRight
         }
       }
 
