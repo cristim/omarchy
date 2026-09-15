@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# omarchy:summary=Show which processes started the pkexec waiting on a password
+# omarchy:args=<program>
+# omarchy:hidden=true
+
+# Quickshell's polkit agent passes on pkexec's message but not the pid polkit
+# sends with it, so the prompt asks this which processes started the pkexec
+# running <program>, e.g. "omarchy-update ← bash ← foot". Processes name
+# themselves, so that is a hint, not proof.
+
+set -euo pipefail
+
+program=${1:?usage: omarchy-polkit-caller <program>}
+proc_path=${OMARCHY_PROC_PATH:-/proc}
+
+# The program pkexec was given: the first argument after pkexec's own options.
+# A real pkexec has only a few, so a process padding its argv can't stall this.
+pkexec_program() {
+  local -a argv=()
+  mapfile -d '' -t argv 2>/dev/null <"$proc_path/$1/cmdline" || return 0
+  local i=1
+  while ((i < ${#argv[@]} && i < 16)); do
+    case ${argv[i]} in
+    --user | -u) ((i += 2)) ;;
+    --disable-internal-agent | --keep-cwd) ((i += 1)) ;;
+    *) break ;;
+    esac
+  done
+  if ((i < ${#argv[@]})); then
+    printf '%s' "${argv[i]}"
+  fi
+}
+
+# The executable's name, or the script's when an interpreter runs one. Control,
+# line-separator, bidi and zero-width characters are dropped and long names cut,
+# so a name can't rearrange or push aside the rest of the line. Bash's pattern
+# expansions slow down badly on huge strings, so those are cut first.
+process_name() {
+  local LC_ALL=C.UTF-8
+  local dir=$proc_path/$1 name
+  local -a argv=()
+  local hidden=$'[[:cntrl:]\xd8\x9c\xe2\x80\x8b-\xe2\x80\x8f\xe2\x80\xa8-\xe2\x80\xae\xe2\x81\xa0-\xe2\x81\xa9\xef\xbb\xbf]'
+
+  if name=$(readlink "$dir/exe" 2>/dev/null); then
+    name=${name% (deleted)}
+  else
+    name=$2
+  fi
+
+  mapfile -d '' -t argv 2>/dev/null <"$dir/cmdline" || true
+  case ${name##*/} in
+  bash | sh | dash | zsh | python* | perl | node)
+    if [[ -n ${argv[1]:-} && ${argv[1]} != -* ]]; then
+      name=${argv[1]:0:4096}
+    fi
+    ;;
+  esac
+
+  name=${name##*/}
+  name=${name:0:200}
+  name=${name//$hidden/}
+  if ((${#name} > 40)); then
+    name="${name:0:40}…"
+  fi
+  printf '%s' "$name"
+}
+
+# Only a pkexec running as root for this user counts. Any setuid program run
+# through a symlink named pkexec gets that name and euid 0, but its real uid is
+# still its caller's, so another account's process can't claim the prompt. Two
+# waiting for the same program could be either prompt, so that says nothing
+# rather than guess.
+match=""
+for dir in "$proc_path"/[0-9]*; do
+  { comm=$(<"$dir/comm"); } 2>/dev/null || continue
+  [[ $comm == "pkexec" ]] || continue
+
+  real="" effective=""
+  while read -r key uid euid _; do
+    if [[ $key == "Uid:" ]]; then
+      real=$uid
+      effective=$euid
+      break
+    fi
+  done 2>/dev/null <"$dir/status" || true
+  [[ $real == "$UID" && $effective == "0" ]] || continue
+
+  given=$(pkexec_program "${dir##*/}")
+  [[ $given == "$program" || $given == "${program##*/}" ]] || continue
+
+  if [[ -n $match ]]; then
+    exit 1
+  fi
+  match=${dir##*/}
+done
+
+if [[ -z $match ]]; then
+  exit 1
+fi
+
+names=()
+current=$match
+for _ in {1..5}; do
+  { stat=$(<"$proc_path/$current/stat"); } 2>/dev/null || break
+  # comm sits in parentheses and may hold spaces, so parse after the last one.
+  read -r _ ppid _ <<<"${stat##*) }"
+  if ((ppid <= 1)); then
+    break
+  fi
+  current=$ppid
+
+  { comm=$(<"$proc_path/$current/comm"); } 2>/dev/null || break
+  if [[ $comm == "systemd" ]]; then
+    break
+  fi
+
+  name=$(process_name "$current" "$comm")
+  [[ -n $name ]] || continue
+  if ((${#names[@]} == 0)) || [[ ${names[-1]} != "$name" ]]; then
+    names+=("$name")
+  fi
+done
+
+requested_by=""
+for name in "${names[@]}"; do
+  requested_by+=${requested_by:+ ← }$name
+done
+
+printf '%s\n' "$requested_by"
