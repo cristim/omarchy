@@ -157,6 +157,7 @@ asahi_migration_disposition() {
     1790030337.sh) printf 'run\treviewed GRUB console font and root-device wait for Apple Silicon; self-gating to Apple Silicon hardware\n' ;;
     1790037110.sh) printf 'run\treviewed Omarchy GRUB theme and splash-only boot for Apple Silicon; self-gating to Apple Silicon hardware\n' ;;
     1790055026.sh) printf 'run\treviewed Limine boot activation for Apple Silicon; self-gating to Apple Silicon hardware\n' ;;
+    1789480988.sh) printf 'run\treviewed Touch Bar daemon install; self-gating to Touch Bar MacBook Pros\n' ;;
     *) return 1 ;;
   esac
 }

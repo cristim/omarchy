@@ -47,6 +47,7 @@ run_logged "$OMARCHY_INSTALL/hardware/apple/fix-brcmfmac-supplicant.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/snapshots-subvolume.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/grub-console.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/limine-boot.sh"
+run_logged "$OMARCHY_INSTALL/hardware/apple/touch-bar.sh"
 
 run_logged "$OMARCHY_INSTALL/hardware/lenovo/fix-yoga-pro7-bass-speakers.sh"
 
