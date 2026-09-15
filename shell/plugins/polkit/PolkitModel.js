@@ -33,24 +33,44 @@ function visibleText(text) {
 function authorizationRequest(message, tr) {
   var t = typeof tr === "function" ? tr : function(key, english) { return english }
   var text = String(message || "")
-  if (!text) return { title: t("polkit.authenticationNeeded", "Authentication is needed..."), program: "", args: "" }
+  if (!text) return { title: t("polkit.authenticationNeeded", "Authentication is needed..."), program: "", args: "", command: "" }
   // pkexec's message: "Authentication is needed to run `CMD' as the super user"
   // (or "... as user NAME"). CMD is pkexec's cmdline_short, which keeps any
   // quotes the command itself contains, so anchor on the fixed tail instead of
   // stopping at the next quote.
   var match = text.match(/^Authentication is (?:needed|required) to run [`']([\s\S]+)[`'] as (?:(the super user)|user ([\s\S]+))$/i)
-  if (!match) return { title: text, program: "", args: "" }
+  if (!match) return { title: text, program: "", args: "", command: "" }
 
   // pkexec separates the program from its arguments with one space. Split on
   // that space only, so a control character at either boundary stays in the
   // text and reaches visibleText() instead of being trimmed away.
   var command = match[1].match(/^([^ ]+)(?: ([\s\S]*))?$/)
-  if (!command) return { title: text, program: "", args: "" }
+  if (!command) return { title: text, program: "", args: "", command: "" }
 
+  // command keeps the message's text exactly, unescaped and with empty and
+  // space-padded arguments, for matching against the waiting pkexec.
   return {
     title: match[2] ? t("polkit.runAsRoot", "Run as root") : t("polkit.runAsUser", "Run as %1").replace("%1", function() { return visibleText(match[3]) }),
     program: visibleText(command[1]),
-    args: visibleText(command[2] || "")
+    args: visibleText(command[2] || ""),
+    command: match[1]
+  }
+}
+
+// omarchy-polkit-caller's JSON: who started pkexec, and the full command it was
+// given, shell-quoted and already capped.
+function callerFromOutput(exitCode, output) {
+  var info = null
+  if (exitCode === 0) {
+    try {
+      info = JSON.parse(String(output || ""))
+    } catch (e) {}
+  }
+  info = info || {}
+  return {
+    requestedBy: typeof info.requestedBy === "string" ? info.requestedBy : "",
+    command: typeof info.command === "string" ? info.command : "",
+    shortened: info.shortened === true
   }
 }
 
@@ -58,6 +78,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     promptLooksFingerprint: promptLooksFingerprint,
     fingerprintConfiguredFromPamConfig: fingerprintConfiguredFromPamConfig,
-    authorizationRequest: authorizationRequest
+    authorizationRequest: authorizationRequest,
+    callerFromOutput: callerFromOutput
   }
 }
