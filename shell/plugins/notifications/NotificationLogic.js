@@ -227,14 +227,13 @@ function requestedDuration(expireTimeout) {
   return Math.round(ms)
 }
 
-// How long a popup stays on screen, in milliseconds; 0 keeps it until handled.
-// Critical toasts never expire unless the sender opted in with
-// --expire-critical and gave a timeout, so the timeouts other critical senders
-// pass keep meaning nothing.
+// How long a popup stays on screen, in milliseconds. Critical toasts normally
+// use the 30-second cap. A sender can opt in to a requested duration of up to
+// one minute, as the crash watcher does.
 function popupDuration(urgency, expireTimeout, expireCritical, lowUrgency, criticalUrgency) {
   var requested = requestedDuration(expireTimeout)
   if (urgency === criticalUrgency) {
-    if (!expireCritical || requested === 0) return 0
+    if (!expireCritical || requested === 0) return MAX_POPUP_DURATION
     return Math.min(MAX_EXPIRING_CRITICAL_DURATION, Math.max(NORMAL_POPUP_DURATION, requested))
   }
   var floor = urgency === lowUrgency ? LOW_POPUP_DURATION : NORMAL_POPUP_DURATION

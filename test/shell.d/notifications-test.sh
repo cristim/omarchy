@@ -510,11 +510,11 @@ assertDeepEqual(
 
 // Critical toasts stay until handled. Only a sender that opts in with
 // --expire-critical has its timeout honored, and then for up to a minute.
-assertEqual(notifications.popupDuration(2, 0, false, 0, 2), 0, 'critical popups never expire by default')
-assertEqual(notifications.popupDuration(2, 30000, false, 0, 2), 0, 'a critical popup ignores its timeout without the expire-critical opt-in')
+assertEqual(notifications.popupDuration(2, 0, false, 0, 2), 30000, 'critical popups expire after thirty seconds by default')
+assertEqual(notifications.popupDuration(2, 30000, false, 0, 2), 30000, 'a critical popup uses the default cap without the expire-critical opt-in')
 assertEqual(notifications.popupDuration(2, 60000, true, 0, 2), 60000, 'an expiring critical popup honors a one-minute timeout')
 assertEqual(notifications.popupDuration(2, 600000, true, 0, 2), 60000, 'an expiring critical popup is capped at a minute')
-assertEqual(notifications.popupDuration(2, 0, true, 0, 2), 0, 'an expiring critical popup without a timeout still stays until handled')
+assertEqual(notifications.popupDuration(2, 0, true, 0, 2), 30000, 'an expiring critical popup without a timeout uses the default cap')
 assertEqual(notifications.popupDuration(1, 60000, true, 0, 2), 30000, 'the expire-critical opt-in does not lift the cap on normal popups')
 assertEqual(notifications.popupDuration(0, 0, false, 0, 2), 5000, 'low popups keep the short default lifetime')
 assertEqual(notifications.popupDuration(1, 0, false, 0, 2), 8000, 'normal popups keep the default lifetime')
