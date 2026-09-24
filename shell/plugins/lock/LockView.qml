@@ -228,6 +228,7 @@ Item {
       Text {
         id: visibilityToggle
         objectName: "passwordVisibilityToggle"
+        textFormat: Text.PlainText
         anchors.right: parent.right
         anchors.rightMargin: inputField.borderRight + 18
         anchors.verticalCenter: parent.verticalCenter
