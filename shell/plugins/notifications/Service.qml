@@ -102,7 +102,7 @@ Item {
   function durationFor(urgency, expireTimeout) {
     switch (urgency) {
     case NotificationUrgency.Critical:
-      return 0
+      return maxPopupDuration
     case NotificationUrgency.Low:
       return Math.min(maxPopupDuration, Math.max(lowPopupDuration, requestedDuration(expireTimeout)))
     default:
