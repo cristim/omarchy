@@ -25,8 +25,8 @@ Item {
 
   property bool closing: false
   property bool submitted: false
-  // Enter was pressed before PAM asked for the password; the typed text stays
-  // in the field and is submitted as soon as PAM asks.
+  // Enter was pressed before PAM asked for the password; the dialog hides and
+  // the typed text is submitted as soon as PAM asks.
   property bool submitQueued: false
   property string currentMessage: ""
   property string currentPrompt: ""
@@ -117,12 +117,11 @@ Item {
       submitQueued = passwordInput.text.length > 0
       return
     }
-    submitQueued = false
     submitted = true
+    submitQueued = false
     errorFlash = false
     flow.submit(passwordInput.text)
     passwordInput.text = ""
-    keyCatcher.forceActiveFocus()
   }
 
   function cancelRequest() {
@@ -235,7 +234,8 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: root.dialogVisible
+    // Hidden from Enter until PAM answers; a wrong password brings it back.
+    visible: root.dialogVisible && !root.submitQueued && !root.submitted
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "omarchy-polkit"
@@ -307,8 +307,7 @@ Item {
         spacing: Style.space(14)
 
         Text {
-          textFormat: Text.PlainText
-          text: root.submitQueued ? "\uf252" : "\uf023"
+          text: "\uf023"
           color: root.errorFlash ? Color.polkit.textError : root.accent
           font.family: root.fontFamily
           font.pixelSize: Style.font.iconLarge
@@ -316,14 +315,6 @@ Item {
           height: root.fieldHeight
           horizontalAlignment: Text.AlignHCenter
           verticalAlignment: Text.AlignVCenter
-
-          SequentialAnimation on opacity {
-            running: root.submitQueued
-            loops: Animation.Infinite
-            alwaysRunToEnd: true
-            NumberAnimation { to: 0.25; duration: 500; easing.type: Easing.InOutQuad }
-            NumberAnimation { to: 1; duration: 500; easing.type: Easing.InOutQuad }
-          }
         }
 
         Item {
@@ -343,8 +334,8 @@ Item {
             echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
             passwordCharacter: "\u2022"
             color: root.errorFlash ? Color.polkit.textError : root.foreground
-            cursorVisible: activeFocus && !root.submitted && !root.submitQueued && !root.errorFlash
-            readOnly: root.submitted || root.submitQueued || root.errorFlash
+            cursorVisible: activeFocus && !root.errorFlash
+            readOnly: root.errorFlash
             enabled: root.dialogVisible
             onAccepted: root.submitResponse()
             Keys.onPressed: function(event) {
@@ -360,7 +351,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            text: root.errorFlash ? "Wrong" : (root.submitted ? "Checking..." : "Enter password")
+            text: root.errorFlash ? "Wrong" : "Enter password"
             color: root.errorFlash ? Color.polkit.textError : root.foreground
             opacity: root.errorFlash ? 1 : 0.36
             font.family: root.fontFamily
@@ -375,7 +366,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             color: root.errorFlash ? Color.polkit.textError : root.foreground
-            visible: passwordInput.visible && passwordInput.activeFocus && passwordInput.text.length === 0 && !root.submitted && !root.errorFlash
+            visible: passwordInput.visible && passwordInput.activeFocus && passwordInput.text.length === 0 && !root.errorFlash
           }
 
           MouseArea {
