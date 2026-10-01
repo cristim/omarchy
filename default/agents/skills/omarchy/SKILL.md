@@ -93,15 +93,18 @@ enter a password there, such as a command launched by an agent or a graphical
 background process. Do not replace `sudo` with `pkexec` merely because a
 command changes system state.
 
-An agent cannot tell in advance whether a command has passwordless `sudo`.
+An agent cannot assume a command has passwordless `sudo`.
 Try `sudo -n <command>` first. If it fails with `a password is required`,
-rerun the same command with `pkexec <command>` instead of handing it back to
-the user to run. `pkexec` shows a graphical polkit prompt on the desktop, so
-give the call a generous timeout while the user answers it.
+rerun the same command with `pkexec --disable-internal-agent <command>`
+instead of handing it back to the user to run. `pkexec` shows a graphical
+polkit prompt on the desktop, so give the call a generous timeout while the
+user answers it. Without `--disable-internal-agent`, a missing polkit agent
+makes `pkexec` fall back to a password prompt in the agent's own terminal,
+where the user cannot see it.
 
 ```bash
 sudo -n systemctl enable --now bluetooth   # fails: a password is required
-pkexec systemctl enable --now bluetooth    # user authorizes via polkit prompt
+pkexec --disable-internal-agent systemctl enable --now bluetooth
 ```
 
 `pkexec` is not a drop-in `sudo`: it runs the command in root's home directory
