@@ -1127,14 +1127,19 @@ Item {
             readonly property bool ticking: cardSlot.lifetime > 0 && !card.hovered
 
             // A client updating this notification in place rewrites the row
-            // under the card (see refreshPopup). New text deserves a full look,
-            // so the countdown starts over instead of running out the clock the
-            // superseded text was already most of the way through. Delegates
-            // keep their own row as the model changes around them, so only a
-            // real content change lands here.
+            // under the card (see refreshPopup). New text, a new urgency and a
+            // new timeout each deserve a full look, so the countdown starts
+            // over instead of running out the clock the state they replaced
+            // was already most of the way through. The lifetime above is derived
+            // from urgency, expireTimeout and expireCritical, so all three
+            // restart it. Delegates keep their own row as the model changes
+            // around them, so only a real update lands here.
             onSummaryChanged: cardSlot.remainingLifetime = 1.0
             onBodyChanged: cardSlot.remainingLifetime = 1.0
             onImageChanged: cardSlot.remainingLifetime = 1.0
+            onUrgencyChanged: cardSlot.remainingLifetime = 1.0
+            onExpireTimeoutChanged: cardSlot.remainingLifetime = 1.0
+            onExpireCriticalChanged: cardSlot.remainingLifetime = 1.0
 
             Timer {
               interval: 50

@@ -794,6 +794,18 @@ assert(
   'notifications service restarts the countdown when a toast is updated under it'
 )
 assert(
+  /onUrgencyChanged: cardSlot\.remainingLifetime = 1\.0/.test(serviceQml),
+  'notifications service restarts the countdown when an update changes only the urgency'
+)
+assert(
+  /onExpireTimeoutChanged: cardSlot\.remainingLifetime = 1\.0/.test(serviceQml),
+  'notifications service restarts the countdown when an update changes only the timeout'
+)
+assert(
+  /onExpireCriticalChanged: cardSlot\.remainingLifetime = 1\.0/.test(serviceQml),
+  'notifications service restarts the countdown when an update flips expire-critical'
+)
+assert(
   /awk 1 \\"\$1\\"\/\*\.json 2>\/dev\/null \|\| true", "--", historyDir/.test(serviceQml),
   'notifications service replays history by reading the archived files'
 )
