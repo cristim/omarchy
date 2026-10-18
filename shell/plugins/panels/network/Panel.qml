@@ -2109,7 +2109,7 @@ Panel {
         anchors.verticalCenter: pwField.verticalCenter
         anchors.rightMargin: Style.space(2)
         iconText: root.passwordRevealed ? "󰈉" : "󰈈"
-        tooltipText: root.passwordRevealed ? "Hide passphrase" : "Show passphrase"
+        tooltipText: root.passwordRevealed ? Commons.I18n.t("network.hidePassphrase") : Commons.I18n.t("network.showPassphrase")
         foreground: root.bar.foreground
         fontFamily: root.bar.fontFamily
         onClicked: {
