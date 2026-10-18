@@ -204,6 +204,17 @@ function sameGroup(row, entry) {
   return String(row.group || "") === group && String(row.app || "") === String(entry.app || "")
 }
 
+// How many notifications a toast or row stands for: a plain one is one.
+function groupSize(entry) {
+  return Math.max(1, Number((entry || {}).groupCount) || 1)
+}
+
+// The count a toast shows once it has absorbed `absorbed` notifications' worth
+// of other toasts from its group.
+function groupTotal(entry, absorbed) {
+  return groupSize(entry) + Number(absorbed || 0)
+}
+
 // The summary a grouped toast shows once it stands for more than one
 // notification.
 function groupedSummary(summary, groupCount) {
@@ -561,6 +572,8 @@ if (typeof module !== "undefined") {
     groupFromHints: groupFromHints,
     expireCriticalFromHints: expireCriticalFromHints,
     sameGroup: sameGroup,
+    groupSize: groupSize,
+    groupTotal: groupTotal,
     groupedSummary: groupedSummary,
     popupDuration: popupDuration,
     snapshotOf: snapshotOf,

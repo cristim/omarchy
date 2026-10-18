@@ -584,6 +584,13 @@ assert(
   'ungrouped notifications never absorb one another'
 )
 assertEqual(notifications.groupedSummary('Process crashed: mldr', 1), 'Process crashed: mldr', 'a single notification shows no count')
+assertEqual(notifications.groupedSummary('Process crashed: mldr', 2), 'Process crashed: mldr (×2)', 'a toast standing for two notifications already shows its count')
+assertEqual(notifications.groupSize({ groupCount: 4 }), 4, 'a grouped row stands for its count')
+assertEqual(notifications.groupSize({}), 1, 'a row without a count stands for one notification')
+assertEqual(notifications.groupSize({ groupCount: 0 }), 1, 'a zero count still stands for one notification')
+assertEqual(notifications.groupTotal({ groupCount: 1 }, 6), 7, 'a toast adds the notifications it absorbed to its own')
+assertEqual(notifications.groupTotal({ groupCount: 3 }, 2), 5, 'a toast that already stands for several keeps them when absorbing')
+assertEqual(notifications.groupTotal({}, 0), 1, 'absorbing nothing leaves a plain toast at one')
 assertEqual(notifications.groupedSummary('Process crashed: mldr', 5), 'Process crashed: mldr (×5)', 'a grouped toast shows how many it stands for')
 
 // The group, its count, and the timeout opt-in ride through the popup file, so
@@ -833,6 +840,12 @@ assert(
 assert(
   /function deleteShownPopupFileFor\(row\)[\s\S]{0,200}?\[\[ -e \$1\/\$2\.json \]\] \|\| exit 0/.test(serviceQml),
   'notifications service leaves a replayed history entry\'s image copies alone when a group absorbs its row'
+)
+assert(
+  /absorbed \+= NotificationLogic\.groupSize\(row\)/.test(serviceQml) &&
+    /snapshot\.groupCount = NotificationLogic\.groupTotal\(snapshot, absorbed\)/.test(serviceQml) &&
+    /NotificationLogic\.groupTotal\(survivor, NotificationLogic\.groupSize\(restored\)\)/.test(serviceQml),
+  'notifications service counts grouped toasts through the shared group helpers'
 )
 assert(
   /var grouped = groupedPopupIndex\(restored\)/.test(serviceQml),

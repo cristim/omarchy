@@ -180,7 +180,7 @@ Item {
       // waiting on this same deferral to reach the model.
       var absorbed = absorbGroupedPopups(snapshot)
       if (absorbed > 0) {
-        snapshot.groupCount += absorbed
+        snapshot.groupCount = NotificationLogic.groupTotal(snapshot, absorbed)
         persistPopupFile(snapshot)
       }
       removeDuplicatePopups(service.currentContent(notification, snapshot))
@@ -354,7 +354,7 @@ Item {
     for (var i = popupModel.count - 1; i >= 0; i--) {
       var row = popupModel.get(i)
       if (!NotificationLogic.sameGroup(row, snapshot)) continue
-      absorbed += Math.max(1, row.groupCount || 1)
+      absorbed += NotificationLogic.groupSize(row)
       var fileName = NotificationLogic.popupFileName(row)
       if (fileName !== keepFileName) deleteShownPopupFileFor(row)
       if (isRestoredRow(row)) {
@@ -862,7 +862,7 @@ Item {
         if (grouped >= 0) {
           var survivor = popupModel.get(grouped)
           popupModel.setProperty(grouped, "groupCount",
-            Math.max(1, survivor.groupCount || 1) + Math.max(1, restored.groupCount || 1))
+            NotificationLogic.groupTotal(survivor, NotificationLogic.groupSize(restored)))
           deleteShownPopupFileFor(restored)
           persistPopupFile(rowEntry(popupModel.get(grouped)))
           continue

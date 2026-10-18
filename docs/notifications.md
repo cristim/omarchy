@@ -17,9 +17,10 @@ The end-user view (hotkey notices for time, battery, weather) is in
 A toast lives on screen for at least 5s (low), 8s (normal), or forever
 (critical), stretched up to 30s if the sender asked for a longer
 `expire_timeout`. A critical toast sent with `--expire-critical` honors its
-`expire_timeout` after all, capped at 60s; without it, the timeouts critical
-senders pass mean nothing. Hovering pauses the countdown, and a content update
-restarts it — new text deserves a full look. Left-click invokes the default
+`expire_timeout` after all, raised to at least 8s and capped at 60s (a request
+for 1s shows for 8s); with no `expire_timeout` it still waits forever. Without
+the flag, the timeouts critical senders pass mean nothing. Hovering pauses the
+countdown, and a content update restarts it — new text deserves a full look. Left-click invokes the default
 action, right-click or the hover-revealed close button dismisses.
 
 Every on-screen popup is mirrored to its own file under
@@ -80,7 +81,7 @@ flags map onto that call:
 | `--app-name` | `app_name` | defaults to `omarchy-action` |
 | `-u` / `--urgency` | hint `urgency` (byte) | `low`/`normal`/`critical`; defaults to `low` |
 | `-t` / `--expire-time` | `expire_timeout` | milliseconds on screen; server default otherwise |
-| `--expire-critical` | hint `omarchy-expire-critical` | lets a critical toast honor `-t`, capped at 60s |
+| `--expire-critical` | hint `omarchy-expire-critical` | lets a critical toast honor `-t`, between 8s and 60s |
 | `--group <key>` | hint `omarchy-group` | a toast from the same `app_name` holding this key is replaced and counted ("×5"), including one restored after a shell restart |
 
 Unknown flags are a hard error, not a silent pass-through: `--exec` is the only
