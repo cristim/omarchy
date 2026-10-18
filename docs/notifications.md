@@ -14,7 +14,13 @@ The end-user view (hotkey notices for time, battery, weather) is in
 
 ## Toast lifecycle
 
-A toast lives on screen for at least 5s (low), 8s (normal), or forever (critical), stretched up to 30s if the sender asked for a longer `expire_timeout`. A critical toast sent with `--expire-critical` honors its `expire_timeout` after all, capped at 60s; without it, the timeouts critical senders pass mean nothing. Hovering pauses the countdown, and a content update restarts it — new text deserves a full look. Left-click invokes the default action, right-click or the hover-revealed close button dismisses.
+A toast lives on screen for at least 5s (low), 8s (normal), or forever
+(critical), stretched up to 30s if the sender asked for a longer
+`expire_timeout`. A critical toast sent with `--expire-critical` honors its
+`expire_timeout` after all, capped at 60s; without it, the timeouts critical
+senders pass mean nothing. Hovering pauses the countdown, and a content update
+restarts it — new text deserves a full look. Left-click invokes the default
+action, right-click or the hover-revealed close button dismisses.
 
 Every on-screen popup is mirrored to its own file under
 `~/.local/state/omarchy/notifications/` (one JSON line per file, named
@@ -165,7 +171,12 @@ Everything goes through the same sender contract, so the pieces are small:
 
 - **Low battery** — `omarchy-battery-low` sends a critical toast and runs the
   `battery-low` hook.
-- **Crash capture** — `omarchy-crash-watch` follows the systemd-coredump journal stream and announces every crash as a critical toast that expires after a minute (`--expire-critical`), grouped per program (`--group crash:<name>`) so a crash loop is one counted toast. Its click runs `omarchy-agent-crash` on the newest crash (via `--exec`, so a hostile process name stays a discrete argument). It waits for the
+- **Crash capture** — `omarchy-crash-watch` follows the systemd-coredump
+  journal stream and announces every crash as a critical toast that expires
+  after a minute (`--expire-critical`), grouped per program
+  (`--group crash:<name>`) so a crash loop is one counted toast. Its click runs
+  `omarchy-agent-crash` on the newest crash (via `--exec`, so a hostile process
+  name stays a discrete argument). It waits for the
   server first: a shell crash takes the notification server down with it, and
   that crash is the one most worth reporting.
 - **Pending migrations** — `omarchy-migrate-notify` (from its user service
