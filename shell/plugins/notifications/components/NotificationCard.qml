@@ -17,7 +17,7 @@ BorderSurface {
   property string appIcon: ""
   property string summary: ""
   // How many notifications a grouped toast stands for (see
-  // NotificationLogic.groupFromHints); shown after the summary past one.
+  // NotificationLogic.groupFromHints); shown beside the summary past one.
   property int groupCount: 1
   property string body: ""
   property string image: ""
