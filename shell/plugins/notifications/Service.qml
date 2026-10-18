@@ -824,13 +824,9 @@ Item {
       // a toast with a second left on its clock. The reset is persisted as
       // an absolute deadline so a second restart while the toast is still
       // on screen judges it by the reset clock, not the original timestamp.
-      if (duration > 0) {
-        entry.deadline = now + duration
-        persistPopupFile(entry)
-        // deadline is persistence metadata, not a model role — fresh rows
-        // never carry it, and ListModel roles must stay consistent.
-        delete entry.deadline
-      }
+      // The deadline is persistence metadata, not a model role: fresh rows
+      // never carry it, and ListModel roles must stay consistent.
+      if (duration > 0) persistPopupFile(NotificationLogic.withRestoreDeadline(entry, now, duration))
       live.push(entry)
     }
     if (live.length === 0) return
@@ -864,7 +860,15 @@ Item {
           popupModel.setProperty(grouped, "groupCount",
             NotificationLogic.groupTotal(survivor, NotificationLogic.groupSize(restored)))
           deleteShownPopupFileFor(restored)
-          persistPopupFile(rowEntry(popupModel.get(grouped)))
+          // A restored survivor is re-persisted from its row, which holds no
+          // deadline: give it the reset it was restored with, or a second
+          // restart would judge it by its original timestamp and archive it.
+          var kept = rowEntry(popupModel.get(grouped))
+          if (isRestoredRow(survivor)) {
+            kept = NotificationLogic.withRestoreDeadline(kept, now,
+              durationFor(kept.urgency, kept.expireTimeout, kept.expireCritical))
+          }
+          persistPopupFile(kept)
           continue
         }
         // Append (entries are newest-first) so restored toasts stack in

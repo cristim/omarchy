@@ -494,6 +494,16 @@ function popupExpired(entry, duration, now) {
   return (Number(now) - Number((entry || {}).timestamp || 0)) >= lifetime
 }
 
+// The entry as persisted when a restore resets its lifetime: a copy carrying
+// the absolute deadline, or unchanged when the toast never expires. The
+// deadline lives only in the file, never on a model row, so every write that
+// re-persists a restored row goes through here again.
+function withRestoreDeadline(entry, now, duration) {
+  var lifetime = Number(duration || 0)
+  if (!isFinite(lifetime) || lifetime <= 0) return entry
+  return Object.assign({}, entry, { deadline: Number(now) + lifetime })
+}
+
 // How far a toast on a screen keeps from a top or right bar: the bar's
 // thickness on that screen (a notch floor can make a top bar thicker than its
 // configured size on one screen), plus the gap. A bar without per-screen
@@ -577,6 +587,7 @@ if (typeof module !== "undefined") {
     groupSize: groupSize,
     groupTotal: groupTotal,
     groupedSummary: groupedSummary,
+    withRestoreDeadline: withRestoreDeadline,
     popupDuration: popupDuration,
     snapshotOf: snapshotOf,
     popupRoles: popupRoles,

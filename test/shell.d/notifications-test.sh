@@ -611,6 +611,24 @@ assertEqual(notifications.groupTotal({ groupCount: 3 }, 2), 5, 'a toast that alr
 assertEqual(notifications.groupTotal({}, 0), 1, 'absorbing nothing leaves a plain toast at one')
 assertEqual(notifications.groupedSummary('Process crashed: mldr', 5), 'Process crashed: mldr (×5)', 'a grouped toast shows how many it stands for')
 
+// A restore folds a group's older toast into the survivor and re-persists the
+// survivor's row, which carries no deadline. The reset must be written again,
+// or a second restart judges the survivor by its original timestamp.
+const survivorRow = Object.assign({}, groupedSnapshot, { timestamp: 1000, groupCount: 2 })
+const rePersisted = notifications.withRestoreDeadline(survivorRow, 50000, 60000)
+assertEqual(rePersisted.deadline, 110000, 'a re-persisted restored row carries the reset deadline')
+assert(!('deadline' in survivorRow), 'adding the reset deadline leaves the model row untouched')
+const rePersistedBack = notifications.parsePopupFiles(notifications.serializePopup(rePersisted, 1), 1)[0]
+assert(
+  !notifications.popupExpired(rePersistedBack, 60000, 100000),
+  'a row re-persisted with its reset deadline survives a second restart inside the reset lifetime'
+)
+assert(
+  notifications.popupExpired(notifications.parsePopupFiles(notifications.serializePopup(survivorRow, 1), 1)[0], 60000, 100000),
+  'a row re-persisted without it is judged by its original timestamp'
+)
+assert(notifications.withRestoreDeadline(survivorRow, 50000, 0) === survivorRow, 'a toast that never expires gets no deadline')
+
 // The group, its count, and the timeout opt-in ride through the popup file, so
 // a shell restart brings back a toast the next repeat can still find.
 const groupedFile = notifications.serializePopup(Object.assign({}, groupedSnapshot, { groupCount: 4 }), 1)
@@ -892,6 +910,10 @@ assert(
 assert(
   /durationFor\(entry\.urgency, entry\.expireTimeout, entry\.expireCritical\)/.test(serviceQml),
   'notifications service judges a restored toast by the same expire-critical opt-in'
+)
+assert(
+  /isRestoredRow\(survivor\)\) \{\s*kept = NotificationLogic\.withRestoreDeadline\(kept, now,[\s\S]{0,120}?persistPopupFile\(kept\)/.test(serviceQml),
+  'notifications service keeps the reset deadline when a restore re-persists a folded survivor'
 )
 assert(
   /text: NotificationLogic\.groupedSummary\(root\.summary, root\.groupCount\)/.test(cardQml),
