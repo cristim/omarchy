@@ -75,6 +75,7 @@ Item {
     failed = false
     errorFlash = false
     submitted = false
+    submitQueued = false
     passwordInput.text = ""
   }
 
