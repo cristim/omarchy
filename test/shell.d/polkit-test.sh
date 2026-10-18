@@ -39,6 +39,16 @@ assertEqual(
   'polkit shows bidi controls in the pkexec command as escapes'
 )
 assertEqual(
+  request("Authentication is needed to run `/usr/bin/\u202egpj-evil -x' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/\\u202egpj-evil', args: '-x' }),
+  'polkit shows bidi controls in the program token as escapes'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/id -u\u061c' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/id', args: '-u\\u061c' }),
+  'polkit shows the Arabic letter mark as an escape'
+)
+assertEqual(
   request("Authentication is needed to run `/usr/bin/id' as user \u202etoor (mallory)"),
   JSON.stringify({ title: 'Run as \\u202etoor (mallory)', program: '/usr/bin/id', args: '' }),
   'polkit shows bidi controls in the target user as escapes'
