@@ -304,8 +304,10 @@ function popupRowChanged(row, updated) {
 // single reminder, all within the same moment — what the user means by that
 // is one toast, not a stack of identical ones. The image and click target
 // count too: every screen recording toast shares its text but previews and
-// opens a different file.
-var DUPLICATE_ROLES = ["app", "summary", "body", "image", "execArgv"]
+// opens a different file. The group key counts as well: two jobs that report
+// the same status under their own keys are two toasts, and an ungrouped copy
+// is not the grouped one it resembles.
+var DUPLICATE_ROLES = ["app", "summary", "body", "image", "execArgv", "group"]
 
 function isDuplicatePopup(row, snapshot) {
   if (!row || !snapshot || row.originalId === snapshot.originalId) return false

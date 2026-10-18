@@ -396,6 +396,24 @@ assert(
   'notifications keep same-text toasts that preview and open different files'
 )
 
+const jobStatus = { originalId: 40, app: 'omarchy-action', summary: 'Job finished', body: 'ok', image: '', execArgv: '', group: 'job:a' }
+assert(
+  !notifications.isDuplicatePopup(jobStatus, Object.assign({}, jobStatus, { originalId: 41, group: 'job:b' })),
+  'notifications keep identical toasts held under different group keys'
+)
+assert(
+  !notifications.isDuplicatePopup(jobStatus, Object.assign({}, jobStatus, { originalId: 41, group: '' })),
+  'notifications keep an ungrouped toast apart from the grouped one it resembles'
+)
+assert(
+  !notifications.isDuplicatePopup(Object.assign({}, jobStatus, { group: '' }), Object.assign({}, jobStatus, { originalId: 41 })),
+  'notifications keep a grouped toast apart from the ungrouped one it resembles'
+)
+assert(
+  notifications.isDuplicatePopup(Object.assign({}, jobStatus, { group: '' }), Object.assign({}, jobStatus, { originalId: 41, group: '' })),
+  'notifications still collapse identical ungrouped toasts'
+)
+
 const settings = notifications.parseSettings(JSON.stringify({ version: 3, dnd: true }))
 assertEqual(settings.dnd, true, 'notifications parse the persisted DND state')
 assertEqual(settings.legacy, false, 'notifications do not flag a current settings file as legacy')
