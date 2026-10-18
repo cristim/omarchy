@@ -90,7 +90,9 @@ assert(/id: pwField[\s\S]*?password: !root\.passwordRevealed/.test(panelSource),
 assert(/id: revealPwBtn[\s\S]*?root\.passwordRevealed = !root\.passwordRevealed/.test(panelSource), 'network toggles passphrase visibility from the eye button')
 assert(/onPasswordSsidChanged: \{\s*passwordRevealed = false/.test(panelSource), 'network re-masks the passphrase whenever the prompt moves or closes')
 // Qt drops its "don't learn this" input method hints along with the mask.
-assert(/id: pwField[\s\S]*?inputMethodHints: Qt\.ImhSensitiveData \| Qt\.ImhNoPredictiveText/.test(panelSource), 'network keeps the input method from learning a revealed passphrase')
+assert(/id: pwField[\s\S]*?inputMethodHints: Qt\.ImhSensitiveData \| Qt\.ImhNoPredictiveText \| Qt\.ImhNoAutoUppercase/.test(panelSource), 'network keeps the input method from learning a revealed passphrase')
+// The tooltips go through the catalog like every other panel string.
+assert(/id: revealPwBtn[\s\S]*?tooltipText: root\.passwordRevealed \? Commons\.I18n\.t\("network\.hidePassphrase"\) : Commons\.I18n\.t\("network\.showPassphrase"\)/.test(panelSource), 'network translates the passphrase reveal tooltips')
 
 assertDeepEqual(
   network.parseNetworkStatus('wifi\tCafe WiFi\t78\t5200\n'),
