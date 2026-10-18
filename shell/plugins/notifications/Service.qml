@@ -827,7 +827,7 @@ Item {
       // The deadline is persistence metadata, not a model role: fresh rows
       // never carry it, and ListModel roles must stay consistent.
       if (duration > 0) persistPopupFile(NotificationLogic.withRestoreDeadline(entry, now, duration))
-      live.push(entry)
+      live.push(NotificationLogic.withoutDeadline(entry))
     }
     if (live.length === 0) return
 

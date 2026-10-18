@@ -504,6 +504,14 @@ function withRestoreDeadline(entry, now, duration) {
   return Object.assign({}, entry, { deadline: Number(now) + lifetime })
 }
 
+// The entry as it enters the popup model: a copy without the persisted
+// deadline, which is file metadata and not a model role.
+function withoutDeadline(entry) {
+  var row = Object.assign({}, entry)
+  delete row.deadline
+  return row
+}
+
 // How far a toast on a screen keeps from a top or right bar: the bar's
 // thickness on that screen (a notch floor can make a top bar thicker than its
 // configured size on one screen), plus the gap. A bar without per-screen
@@ -588,6 +596,7 @@ if (typeof module !== "undefined") {
     groupTotal: groupTotal,
     groupCountLabel: groupCountLabel,
     withRestoreDeadline: withRestoreDeadline,
+    withoutDeadline: withoutDeadline,
     popupDuration: popupDuration,
     snapshotOf: snapshotOf,
     popupRoles: popupRoles,

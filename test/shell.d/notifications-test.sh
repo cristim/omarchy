@@ -630,6 +630,15 @@ assert(
 )
 assert(notifications.withRestoreDeadline(survivorRow, 50000, 0) === survivorRow, 'a toast that never expires gets no deadline')
 
+// A file that already carries a deadline (second restart) must not hand it to
+// the model: every row in the ListModel has to expose the same roles.
+const fromFile = notifications.parsePopupFiles(notifications.serializePopup(rePersisted, 1), 1)[0]
+assert('deadline' in fromFile, 'a popup file written with a reset deadline reads back with it')
+const intoModel = notifications.withoutDeadline(fromFile)
+assert(!('deadline' in intoModel), 'a restored row enters the model without the persisted deadline')
+assert('deadline' in fromFile, 'dropping the deadline for the model leaves the parsed entry untouched')
+assertEqual(intoModel.groupCount, fromFile.groupCount, 'dropping the deadline keeps every other field')
+
 // The group, its count, and the timeout opt-in ride through the popup file, so
 // a shell restart brings back a toast the next repeat can still find.
 const groupedFile = notifications.serializePopup(Object.assign({}, groupedSnapshot, { groupCount: 4 }), 1)
@@ -841,6 +850,10 @@ assert(
 assert(
   /onExpireCriticalChanged: cardSlot\.remainingLifetime = 1\.0/.test(serviceQml),
   'notifications service restarts the countdown when an update flips expire-critical'
+)
+assert(
+  /live\.push\(NotificationLogic\.withoutDeadline\(entry\)\)/.test(serviceQml),
+  'notifications service restores rows into the model without the persisted deadline'
 )
 assert(
   /awk 1 \\"\$1\\"\/\*\.json 2>\/dev\/null \|\| true", "--", historyDir/.test(serviceQml),
