@@ -90,6 +90,12 @@ fi
 if predicate aarch64 apple,j2930 apple,arm-platform; then
   fail "a board name that only starts with j293 is not a Touch Bar Mac"
 fi
+# Neighbouring board numbers must not match: only j293 and j493 have the panel.
+for board in apple,j294 apple,j494 apple,j193; do
+  if predicate aarch64 "$board" apple,arm-platform; then
+    fail "$board is not a Touch Bar Mac"
+  fi
+done
 if predicate x86_64 apple,j293; then
   fail "a non-aarch64 machine is not an Apple Silicon Touch Bar Mac"
 fi
