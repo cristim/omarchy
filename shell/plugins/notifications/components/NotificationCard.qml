@@ -164,22 +164,41 @@ BorderSurface {
         Layout.rightMargin: Style.space(10)
         spacing: Style.space(2)
 
-        Text {
-          // The spec defines the summary as a single line of plain text, so
-          // AutoText could only ever promote a hostile string to rich text.
-          // The body below is StyledText on purpose — see Service.qml's
-          // bodyMarkupSupported — and is stripped in NotificationLogic.
-          textFormat: Text.PlainText
+        RowLayout {
           Layout.fillWidth: true
           visible: root.summary.length > 0
-          text: NotificationLogic.groupedSummary(root.summary, root.groupCount)
-          font.family: "Liberation Sans"
-          color: Commons.Color.notifications.text
-          font.pixelSize: Style.font.title
-          font.bold: true
-          wrapMode: Text.WordWrap
-          elide: Text.ElideRight
-          maximumLineCount: 2
+          spacing: Style.space(4)
+
+          Text {
+            // The spec defines the summary as a single line of plain text, so
+            // AutoText could only ever promote a hostile string to rich text.
+            // The body below is StyledText on purpose — see Service.qml's
+            // bodyMarkupSupported — and is stripped in NotificationLogic.
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignTop
+            text: root.summary
+            font.family: "Liberation Sans"
+            color: Commons.Color.notifications.text
+            font.pixelSize: Style.font.title
+            font.bold: true
+            wrapMode: Text.WordWrap
+            elide: Text.ElideRight
+            maximumLineCount: 2
+          }
+
+          // Beside the summary, not inside it, so eliding a long summary never
+          // takes the count with it.
+          Text {
+            textFormat: Text.PlainText
+            Layout.alignment: Qt.AlignTop
+            visible: text.length > 0
+            text: NotificationLogic.groupCountLabel(root.groupCount)
+            font.family: "Liberation Sans"
+            color: Commons.Color.notifications.text
+            font.pixelSize: Style.font.title
+            font.bold: true
+          }
         }
 
         Text {

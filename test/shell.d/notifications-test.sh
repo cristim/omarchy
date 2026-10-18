@@ -601,15 +601,16 @@ assert(
   !notifications.sameGroup({ app: 'omarchy-action', group: '' }, { app: 'omarchy-action', group: '' }),
   'ungrouped notifications never absorb one another'
 )
-assertEqual(notifications.groupedSummary('Process crashed: mldr', 1), 'Process crashed: mldr', 'a single notification shows no count')
-assertEqual(notifications.groupedSummary('Process crashed: mldr', 2), 'Process crashed: mldr (×2)', 'a toast standing for two notifications already shows its count')
+assertEqual(notifications.groupCountLabel(1), '', 'a single notification shows no count')
+assertEqual(notifications.groupCountLabel(undefined), '', 'a row without a count shows no count')
+assertEqual(notifications.groupCountLabel(2), '(×2)', 'a toast standing for two notifications already shows its count')
 assertEqual(notifications.groupSize({ groupCount: 4 }), 4, 'a grouped row stands for its count')
 assertEqual(notifications.groupSize({}), 1, 'a row without a count stands for one notification')
 assertEqual(notifications.groupSize({ groupCount: 0 }), 1, 'a zero count still stands for one notification')
 assertEqual(notifications.groupTotal({ groupCount: 1 }, 6), 7, 'a toast adds the notifications it absorbed to its own')
 assertEqual(notifications.groupTotal({ groupCount: 3 }, 2), 5, 'a toast that already stands for several keeps them when absorbing')
 assertEqual(notifications.groupTotal({}, 0), 1, 'absorbing nothing leaves a plain toast at one')
-assertEqual(notifications.groupedSummary('Process crashed: mldr', 5), 'Process crashed: mldr (×5)', 'a grouped toast shows how many it stands for')
+assertEqual(notifications.groupCountLabel(5), '(×5)', 'a grouped toast shows how many it stands for')
 
 // A restore folds a group's older toast into the survivor and re-persists the
 // survivor's row, which carries no deadline. The reset must be written again,
@@ -916,8 +917,12 @@ assert(
   'notifications service keeps the reset deadline when a restore re-persists a folded survivor'
 )
 assert(
-  /text: NotificationLogic\.groupedSummary\(root\.summary, root\.groupCount\)/.test(cardQml),
+  /text: NotificationLogic\.groupCountLabel\(root\.groupCount\)/.test(cardQml),
   'the notification card shows how many notifications a grouped toast stands for'
+)
+assert(
+  /text: root\.summary\n[^]*?maximumLineCount: 2[^]*?text: NotificationLogic\.groupCountLabel/.test(cardQml),
+  'the notification card keeps the count out of the summary text so eliding cannot remove it'
 )
 assert(
   /id: closeArea[\s\S]{0,200}?onClicked: root\.closeRequested\(\)/.test(cardQml),

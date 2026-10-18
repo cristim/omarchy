@@ -215,12 +215,12 @@ function groupTotal(entry, absorbed) {
   return groupSize(entry) + Number(absorbed || 0)
 }
 
-// The summary a grouped toast shows once it stands for more than one
-// notification.
-function groupedSummary(summary, groupCount) {
-  var text = String(summary || "")
+// The count a grouped toast shows beside its summary once it stands for more
+// than one notification. It is its own label so a long summary elides without
+// taking the count with it.
+function groupCountLabel(groupCount) {
   var count = Number(groupCount || 0)
-  return count > 1 ? text + " (×" + count + ")" : text
+  return count > 1 ? "(×" + count + ")" : ""
 }
 
 var LOW_POPUP_DURATION = 5000
@@ -586,7 +586,7 @@ if (typeof module !== "undefined") {
     sameGroup: sameGroup,
     groupSize: groupSize,
     groupTotal: groupTotal,
-    groupedSummary: groupedSummary,
+    groupCountLabel: groupCountLabel,
     withRestoreDeadline: withRestoreDeadline,
     popupDuration: popupDuration,
     snapshotOf: snapshotOf,
