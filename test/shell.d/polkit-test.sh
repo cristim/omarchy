@@ -49,6 +49,21 @@ assertEqual(
   'polkit shows the Arabic letter mark as an escape'
 )
 assertEqual(
+  request("Authentication is needed to run `/usr/bin/printf \n' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/printf', args: '\\n' }),
+  'polkit shows a trailing line break in the pkexec command as an escape'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/printf \n\tx' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/printf', args: '\\n\\tx' }),
+  'polkit shows controls before the first argument as escapes'
+)
+assertEqual(
+  request("Authentication is needed to run `/usr/bin/printf' as the super user"),
+  JSON.stringify({ title: 'Run as root', program: '/usr/bin/printf', args: '' }),
+  'polkit leaves the arguments empty when there are none'
+)
+assertEqual(
   request("Authentication is needed to run `/usr/bin/id' as user \u202etoor (mallory)"),
   JSON.stringify({ title: 'Run as \\u202etoor (mallory)', program: '/usr/bin/id', args: '' }),
   'polkit shows bidi controls in the target user as escapes'

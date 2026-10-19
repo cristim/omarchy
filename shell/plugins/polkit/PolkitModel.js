@@ -41,13 +41,16 @@ function authorizationRequest(message, tr) {
   var match = text.match(/^Authentication is (?:needed|required) to run [`']([\s\S]+)[`'] as (?:(the super user)|user ([\s\S]+))$/i)
   if (!match) return { title: text, program: "", args: "" }
 
-  var command = match[1].replace(/^\s+|\s+$/g, "").match(/^(\S+)\s*([\s\S]*)$/)
+  // pkexec separates the program from its arguments with one space. Split on
+  // that space only, so a control character at either boundary stays in the
+  // text and reaches visibleText() instead of being trimmed away.
+  var command = match[1].match(/^([^ ]+)(?: ([\s\S]*))?$/)
   if (!command) return { title: text, program: "", args: "" }
 
   return {
     title: match[2] ? t("polkit.runAsRoot", "Run as root") : t("polkit.runAsUser", "Run as %1").replace("%1", function() { return visibleText(match[3]) }),
     program: visibleText(command[1]),
-    args: visibleText(command[2])
+    args: visibleText(command[2] || "")
   }
 }
 
