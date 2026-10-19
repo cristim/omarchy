@@ -508,49 +508,49 @@ Item {
             maximumLineCount: 2
             elide: Text.ElideRight
           }
-        }
 
-        Text {
-          textFormat: Text.PlainText
-          visible: root.canExplain && root.explanation === "" && !root.submitted
-          width: parent.width
-          text: root.explaining ? I18n.t("polkit.asking").arg(root.agentName)
-            : root.explainError !== "" ? I18n.t("polkit.retryHint").arg(root.explainError)
-            : I18n.t("polkit.askHint").arg(root.agentName)
-          color: root.explainError !== "" ? Commons.Color.polkit.textError : root.accent
-          opacity: root.explaining ? 0.6 : 1
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.Wrap
-          maximumLineCount: 2
-          elide: Text.ElideRight
+          Text {
+            textFormat: Text.PlainText
+            visible: root.canExplain && root.explanation === "" && !root.submitted
+            width: parent.width
+            text: root.explaining ? I18n.t("polkit.asking").arg(root.agentName)
+              : root.explainError !== "" ? I18n.t("polkit.retryHint").arg(root.explainError)
+              : I18n.t("polkit.askHint").arg(root.agentName)
+            color: root.explainError !== "" ? Commons.Color.polkit.textError : root.accent
+            opacity: root.explaining ? 0.6 : 1
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
 
-          MouseArea {
-            anchors.fill: parent
-            enabled: !root.explaining
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.explain()
-              root.refocus()
+            MouseArea {
+              anchors.fill: parent
+              enabled: !root.explaining
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.explain()
+                root.refocus()
+              }
             }
           }
-        }
 
-        // The answer is labeled as a guess: the command it describes was written
-        // by whatever asked for root.
-        Text {
-          textFormat: Text.PlainText
-          visible: root.explanation !== ""
-          width: parent.width
-          clip: true
-          text: I18n.t("polkit.guess").arg(root.agentName).arg(root.explanation)
-          color: root.foreground
-          opacity: 0.8
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.Wrap
-          maximumLineCount: 7
-          elide: Text.ElideRight
+          // The answer is labeled as a guess: the command it describes was written
+          // by whatever asked for root.
+          Text {
+            textFormat: Text.PlainText
+            visible: root.explanation !== ""
+            width: parent.width
+            clip: true
+            text: I18n.t("polkit.guess").arg(root.agentName).arg(root.explanation)
+            color: root.foreground
+            opacity: 0.8
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.Wrap
+            maximumLineCount: 7
+            elide: Text.ElideRight
+          }
         }
       }
 

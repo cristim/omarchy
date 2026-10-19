@@ -164,5 +164,9 @@ assert(
   headerBody.includes('polkit.requestedBy'),
   'polkit shows the requester line inside the header column'
 )
+assert(
+  headerBody.includes('polkit.askHint') && headerBody.includes('polkit.guess'),
+  'polkit shows the explain hint and the explanation inside the header column'
+)
 
 JS
