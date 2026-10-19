@@ -28,7 +28,7 @@ real_bwrap=$(type -P bwrap || true)
 # installed.
 system_bin="$test_tmp/system"
 mkdir -p "$system_bin"
-for tool in bash cat chmod cmp cp env grep head jq ln ls mkdir mktemp mv pgrep printenv ps python3 readlink rm sleep sort stat tail timeout tr wc; do
+for tool in bash cat chmod cmp cp env flock grep head jq ln ls mkdir mktemp mv pgrep printenv ps python3 readlink rm sleep sort stat tail timeout tr wc; do
   ln -s "$(type -P "$tool")" "$system_bin/$tool"
 done
 export PATH="$mock_bin:$ROOT/bin:$system_bin"
@@ -505,6 +505,26 @@ chmod 755 "$test_tmp/dotfiles"
 [[ $output == "home: "* && $(<"$test_tmp/dotfiles/credentials.json") == '{"token":"new"}' ]] &&
   grep -qxF "Couldn't save Claude's refreshed login to $credentials." "$stderr_log" || fail "explain says when a refreshed login can't be saved" "$output / $(<"$stderr_log")"
 pass "explain still answers, and says so, when a refreshed login can't be saved"
+
+# Two explanations for one account can finish together, so saving the refreshed
+# login waits for a lock another one holds instead of racing it.
+echo '{"token":"old"}' >"$credentials"
+(
+  exec 8<"$test_tmp/dotfiles"
+  flock 8
+  sleep 2
+) &
+holder_pid=$!
+sleep 0.5
+explain -- "new" >/dev/null 2>&1 &
+locked_pid=$!
+sleep 1
+[[ $(<"$test_tmp/dotfiles/credentials.json") == '{"token":"old"}' ]] ||
+  fail "a refreshed login waits for the lock held by another explanation" "$(<"$test_tmp/dotfiles/credentials.json")"
+wait "$holder_pid" "$locked_pid" || true
+[[ $(<"$test_tmp/dotfiles/credentials.json") == '{"token":"new"}' ]] ||
+  fail "a refreshed login is saved once the lock is released" "$(<"$test_tmp/dotfiles/credentials.json")"
+pass "a refreshed login waits for another explanation's lock and is saved after it"
 
 "$ROOT/bin/omarchy-agent-explain" -- "wait" >/dev/null 2>&1 &
 explain_pid=$!

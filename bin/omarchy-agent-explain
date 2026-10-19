@@ -248,17 +248,27 @@ keep_login() {
   if [[ ! -f $before ]] || ! mv "$workdir/config/$login" "$taken" 2>/dev/null || [[ ! -f $taken || -L $taken ]]; then
     return 0
   fi
+  # Two explanations for one account can finish together; the check and the
+  # replace run under a lock on the login's directory, whose inode survives the
+  # replace, so the later one can't put back an older login.
+  if ! target=$(readlink -f "$config_dir/$login") || ! exec 9<"${target%/*}" || ! flock -w 10 9; then
+    echo "Couldn't save $name's refreshed login to $config_dir/$login." >&2
+    return 0
+  fi
   if ! head -c 65537 "$taken" >"$checked" 2>/dev/null || (($(stat -c %s "$checked") > 65536)) ||
     cmp -s "$checked" "$before" || ! cmp -s "$config_dir/$login" "$before" ||
     ! jq -es 'length == 1 and (.[0] | type) == "object"' "$checked" >/dev/null 2>&1; then
+    exec 9>&-
     return 0
   fi
-  if target=$(readlink -f "$config_dir/$login") && temporary=$(mktemp -p "${target%/*}" ".${login#.}.XXXXXX" 2>/dev/null); then
+  if temporary=$(mktemp -p "${target%/*}" ".${login#.}.XXXXXX" 2>/dev/null); then
     if cat "$checked" >"$temporary" && mv -f "$temporary" "$target"; then
+      exec 9>&-
       return 0
     fi
     rm -f "$temporary"
   fi
+  exec 9>&-
   echo "Couldn't save $name's refreshed login to $config_dir/$login." >&2
 }
 
