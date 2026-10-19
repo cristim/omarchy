@@ -111,6 +111,13 @@ Item {
     else passwordInput.forceActiveFocus()
   }
 
+  // The header scrolls when a short screen clamps the card; keyboard users reach
+  // the hidden part with Page Up and Page Down while focus stays on the field.
+  function scrollHeader(pages) {
+    var max = Math.max(0, headerView.contentHeight - headerView.height)
+    headerView.contentY = Math.max(0, Math.min(max, headerView.contentY + pages * headerView.height))
+  }
+
   function submitResponse() {
     var flow = polkitAgent.flow
     if (!flow || !flow.isResponseRequired) return
@@ -273,6 +280,9 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.responseRequired) root.submitResponse()
             event.accepted = true
+          } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
+            root.scrollHeader(event.key === Qt.Key_PageDown ? 1 : -1)
+            event.accepted = true
           }
         }
       }
@@ -417,6 +427,9 @@ Item {
             Keys.onPressed: function(event) {
               if (event.key === Qt.Key_Escape) {
                 root.cancelRequest()
+                event.accepted = true
+              } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
+                root.scrollHeader(event.key === Qt.Key_PageDown ? 1 : -1)
                 event.accepted = true
               }
             }

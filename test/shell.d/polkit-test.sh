@@ -119,4 +119,13 @@ auth required pam_unix.so
 `),
   'polkit reports no fingerprint when pam_fprintd is absent'
 )
+// Page Up and Page Down scroll the header from both places that can hold focus,
+// so a keyboard-only user can read a command the short screen has clipped.
+const pageKeysQml = require('fs').readFileSync(path.join(root, 'shell/plugins/polkit/PolkitAgent.qml'), 'utf8')
+assert(
+  pageKeysQml.includes('function scrollHeader(pages)') &&
+    (pageKeysQml.match(/Key_PageDown\) \? 1 : -1|event\.key === Qt\.Key_PageDown \? 1 : -1/g) || []).length === 2,
+  'polkit scrolls the header with Page Up and Page Down from the field and from the key catcher'
+)
+
 JS
