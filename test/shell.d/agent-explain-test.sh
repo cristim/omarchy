@@ -581,3 +581,27 @@ echo pi >"$agent_file"
 output=$(explain -- "/usr/bin/true")
 [[ $output == "pi sees: auth.json models.json settings.json" ]] || fail "pi gets copies of its login and settings only" "$output"
 pass "pi gets copies of its login and settings only"
+
+# The login comes from the account a new session would start as, not always the
+# primary one, unless a home is set explicitly.
+export XDG_STATE_HOME="$HOME/.local/state"
+account_state="$HOME/.local/state/omarchy/agents/accounts"
+side="$account_state/claude/side"
+mkdir -p "$side"
+echo '{"token":"side"}' >"$side/.credentials.json"
+echo private >"$side/settings.json"
+printf '{"active":"side","accounts":[{"id":"main","primary":true},{"id":"side","home":"%s"}]}\n' "$side" >"$account_state/claude.json"
+rm -f "$mock_bin/claude"
+cat >"$mock_bin/claude" <<'SH'
+#!/bin/bash
+PATH=/usr/bin
+cat >/dev/null
+echo "sees: $(ls -A "$CLAUDE_CONFIG_DIR") $(cat "$CLAUDE_CONFIG_DIR/.credentials.json") in ${CLAUDE_CONFIG_DIR##*/}"
+SH
+chmod +x "$mock_bin/claude"
+echo claude >"$agent_file"
+output=$(explain -- "/usr/bin/true")
+[[ $output == 'sees: .credentials.json {"token":"side"} in side' ]] || fail "explain uses the selected claude account's login" "$output"
+output=$(CLAUDE_CONFIG_DIR="$HOME/.claude" explain -- "/usr/bin/true")
+[[ $output == "sees: .credentials.json $(<"$credentials") in .claude" ]] || fail "an explicit claude home wins over the selected account" "$output"
+pass "explain uses the selected claude account's login unless a home is set"
