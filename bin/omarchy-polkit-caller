@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # omarchy:summary=Print which processes started the pkexec waiting on a password, and its full command, as JSON
-# omarchy:args=<program> <shown-command>
+# omarchy:args=<shown-command>
 # omarchy:hidden=true
 
 # Which processes started the pkexec behind the polkit prompt, and its full
@@ -9,26 +9,77 @@
 
 set -euo pipefail
 
-program=${1:?usage: omarchy-polkit-caller <program> <shown-command>}
-shown=${2?usage: omarchy-polkit-caller <program> <shown-command>}
+shown=${1?usage: omarchy-polkit-caller <shown-command>}
 proc_path=${OMARCHY_PROC_PATH:-/proc}
 
-# Whether pkexec's message could end the way the shown one does for this program
-# and its arguments: a relative program shows as an absolute path ending in it.
-ends_like_shown() {
-  local LC_ALL=C text
-  printf -v text '%s ' "$@"
-  text=${text% }
-  [[ $text == /* ]] || text=/$text
-  if ((${#text} > 37)); then
-    text=${text: -37}
+# pkexec's message joins the program, as an absolute path, and its arguments
+# with single spaces, and past 80 bytes keeps only the first 38 and last 37
+# around " ... ".
+shorten() {
+  local LC_ALL=C
+  rendered=$1
+  if ((${#rendered} > 80)); then
+    rendered="${rendered:0:38} ... ${rendered: -37}"
   fi
-  [[ $shown == *"$text" ]]
+}
+
+# Whether the shown message could be pkexec's for this program and arguments:
+# 0 for yes, 1 for no, 2 when it can't be told. A relative program shows as a
+# path this helper cannot see, ending in it, so only the shown text around that
+# path is compared. Sets resolved to the program as shown when the message
+# reveals it.
+resolved=""
+matches_shown() {
+  local LC_ALL=C given=$1 plain=${1#./} text="" n head tail visible
+  shift
+  if (($#)); then
+    printf -v text ' %s' "$@"
+  fi
+
+  if [[ $given == /* ]]; then
+    shorten "$given$text"
+    resolved=$given
+    [[ $rendered == "$shown" ]]
+    return
+  fi
+
+  # The message is at most 80 bytes, or exactly 80 around a cut.
+  if [[ $shown == /*"$text" ]] && ((${#shown} <= 80)); then
+    resolved=${shown%"$text"}
+    [[ $resolved == */"$given" || $resolved == */"$plain" ]] && return 0
+  fi
+  [[ ${shown:38:5} == " ... " ]] || return 1
+
+  # The end of a cut message is the end of the arguments, or of the path when
+  # there are few.
+  tail=${shown: -37}
+  if ((${#text} >= 37)); then
+    [[ $tail == "${text: -37}" ]] || return 1
+  else
+    [[ $tail == *"$text" ]] || return 1
+    visible=${tail:0:37-${#text}}
+    [[ /$given == *"$visible" || $visible == *"/$given" || /$plain == *"$visible" || $visible == *"/$plain" ]] || return 1
+  fi
+
+  for ((n = 1; n < 38; n++)); do
+    resolved=${shown:0:n}
+    [[ $resolved == /*/"$given" || $resolved == /*/"$plain" ]] || continue
+    shorten "$resolved$text"
+    [[ $rendered == "$shown" ]] && return 0
+  done
+
+  # A path running past the first 38 bytes shows only its start. A space in it
+  # could hide where the path ends, so then it can't be told.
+  resolved=$given
+  head=${shown:0:38}
+  [[ $head == /* ]] || return 1
+  [[ $head != *" "* ]] || return 2
 }
 
 # The requester controls its pkexec's name, options and program, so every root
 # process for this user counts unless its command rules it out; two means none.
 candidate=""
+program=""
 candidate_argv=()
 program_index=0
 for dir in "$proc_path"/[0-9]*; do
@@ -53,9 +104,12 @@ for dir in "$proc_path"/[0-9]*; do
     esac
   done
   if ((i < ${#argv[@]})); then
-    given=${argv[i]:0:4096}
-    [[ $given != /* || $given == "$program"* ]] || continue
-    ends_like_shown "${argv[@]:i}" || continue
+    status=0
+    matches_shown "${argv[@]:i}" || status=$?
+    # A process that might be the requester but can't be ruled in or out must
+    # not leave a decoy to be named in its place.
+    ((status != 2)) || exit 1
+    ((status == 0)) || continue
   elif [[ $shown == *" "* ]]; then
     # Without a program pkexec runs a shell, with no arguments to show.
     continue
@@ -67,30 +121,13 @@ for dir in "$proc_path"/[0-9]*; do
   candidate=${dir##*/}
   candidate_argv=("${argv[@]}")
   program_index=$i
+  program=$resolved
 done
 
 if [[ -z $candidate ]] || ((program_index >= ${#candidate_argv[@]})); then
   exit 1
 fi
-if [[ ${candidate_argv[program_index]} != "$program" && ${candidate_argv[program_index]} != "${program##*/}" ]]; then
-  exit 1
-fi
 arguments=("${candidate_argv[@]:program_index+1}")
-
-# pkexec's message joins the command with single spaces, with the program as
-# shown, and past 80 bytes keeps only the first 38 and last 37 around " ... ".
-shown_as() {
-  local LC_ALL=C
-  printf -v rendered '%s ' "$@"
-  rendered=${rendered% }
-  if ((${#rendered} > 80)); then
-    rendered="${rendered:0:38} ... ${rendered: -37}"
-  fi
-}
-shown_as "$program" "${arguments[@]}"
-if [[ $rendered != "$shown" ]]; then
-  exit 1
-fi
 
 # The executable's or script's name without control, bidi or zero-width
 # characters; huge strings are cut first, since bash pattern expansions are slow.

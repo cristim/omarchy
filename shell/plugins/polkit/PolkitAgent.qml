@@ -86,7 +86,7 @@ Item {
   function startCallerLookup() {
     callerSerial = promptSerial
     // Bounded, so a lookup stuck on a hung process can't hold up later prompts.
-    callerProc.command = ["timeout", "-k", "1", "2", "omarchy-polkit-caller", request.program, request.command]
+    callerProc.command = ["timeout", "-k", "1", "2", "omarchy-polkit-caller", request.command]
     callerProc.running = true
   }
 

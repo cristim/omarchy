@@ -31,10 +31,8 @@ fake_process() {
   printf '%s\0' "$@" >"$dir/cmdline"
 }
 
-# caller <shown command>: the program is the shown command's first word, as the
-# prompt splits it.
 caller() {
-  timeout 5 omarchy-polkit-caller "${1%% *}" "$1"
+  timeout 5 omarchy-polkit-caller "$1"
 }
 
 # expect_chain <shown command> <chain> <description>
@@ -125,6 +123,28 @@ fake_process 1250 1000 pkexec 0 "" pkexec other $tool_arguments
 expect_no_match "$(shortened "/usr/bin/tool $tool_arguments")" "caller only matches the program polkit shows, not another relative one"
 remove_process 1250
 
+# pkexec shows a relative program resolved to an absolute path, so the shown
+# program is neither what pkexec was given nor its bare name.
+fake_process 1270 1000 pkexec 0 "" pkexec ./unique-tool --example
+expect_chain "/home/me/unique-tool --example" "foot" "caller matches a relative program shown as a resolved path"
+remove_process 1270
+
+fake_process 1272 1000 pkexec 0 "" pkexec ./other-tool --example
+expect_no_match "/home/me/unique-tool --example" "caller finds no match when a relative program differs from the shown path"
+remove_process 1272
+
+# The prompt shows the program with bidi controls as escapes, but the caller is
+# given the raw text, so a program holding one still matches.
+fake_process 1273 1000 pkexec 0 "" pkexec $'/usr/bin/\xe2\x80\xaeevil' -x
+expect_chain $'/usr/bin/\xe2\x80\xaeevil -x' "foot" "caller matches a program holding a bidi control"
+remove_process 1273
+
+# Past 80 bytes the shown program may be only the start of a long resolved path.
+long_dir=/home/someone/with/a/very/long/directory/name
+fake_process 1271 1000 pkexec 0 "" pkexec --keep-cwd unique-tool $tool_arguments
+expect_chain "$(shortened "$long_dir/unique-tool $tool_arguments")" "foot" "caller matches a relative program whose resolved path is cut in the shown command"
+remove_process 1271
+
 # Commands whose shortened messages would start or end differently don't block.
 tool_shown=$(shortened "/usr/bin/tool $tool_arguments")
 fake_process 1260 1000 pkexec 0 "" pkexec /usr/bin/tool $tool_arguments
@@ -196,7 +216,7 @@ remove_process 2300
 # A real pkexec with a relative program the message shows resolved through a
 # spaced or overlong directory, next to a decoy rendering the same message.
 padding_text="--wipe --no-backup $(printf 'x%.0s' {1..60}) --really"
-for resolved in "/tmp/a b/evil" "/tmp/a b/./evil" "/opt/a-rather-long-directory-for-tools/evil"; do
+for resolved in "/tmp/a b/evil" "/tmp/a b/./evil" "/opt/a-rather-long-directory-for-tools/evil" "/tmp/a b/long-directory-for-tools-and-more/evil"; do
   if [[ $resolved == */./* ]]; then
     typed=./evil
   else
