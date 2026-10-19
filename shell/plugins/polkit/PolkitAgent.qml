@@ -400,21 +400,21 @@ Item {
               }
             }
           }
-        }
 
-        Text {
-          textFormat: Text.PlainText
-          visible: root.requestedBy !== ""
-          width: parent.width
-          clip: true
-          text: I18n.t("polkit.requestedBy").arg(root.requestedBy)
-          color: root.foreground
-          opacity: 0.6
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.Wrap
-          maximumLineCount: 2
-          elide: Text.ElideRight
+          Text {
+            textFormat: Text.PlainText
+            visible: root.requestedBy !== ""
+            width: parent.width
+            clip: true
+            text: I18n.t("polkit.requestedBy").arg(root.requestedBy)
+            color: root.foreground
+            opacity: 0.6
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+          }
         }
       }
 

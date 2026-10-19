@@ -147,4 +147,22 @@ assert(
   'polkit scrolls the header with Page Up and Page Down from the field and from the key catcher'
 )
 
+// The header scrolls inside a Flickable, whose children get no layout, so
+// anything meant to sit under the command has to be inside the header Column
+// or it draws over the title.
+const agentQml = require('fs').readFileSync(path.join(root, 'shell/plugins/polkit/PolkitAgent.qml'), 'utf8')
+const columnStart = agentQml.search(/Column \{\s*id: header\b/)
+assert(columnStart >= 0, 'polkit agent has a header column')
+let depth = 0
+let columnEnd = -1
+for (let i = agentQml.indexOf('{', columnStart); i < agentQml.length; i++) {
+  if (agentQml[i] === '{') depth++
+  else if (agentQml[i] === '}' && --depth === 0) { columnEnd = i; break }
+}
+const headerBody = agentQml.slice(columnStart, columnEnd)
+assert(
+  headerBody.includes('polkit.requestedBy'),
+  'polkit shows the requester line inside the header column'
+)
+
 JS
