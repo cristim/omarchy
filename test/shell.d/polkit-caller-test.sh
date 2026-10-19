@@ -12,6 +12,9 @@ trap 'rm -rf "$test_tmp"' EXIT
 export OMARCHY_PROC_PATH="$test_tmp/proc"
 export PATH="$ROOT/bin:$PATH"
 
+# An effective uid that is never root, even when the test itself runs as root.
+unprivileged=$((UID == 0 ? 1000 : UID))
+
 # fake_process <pid> <ppid> <comm> <euid> <exe or ""> <argv...>
 # Every fake process was started by this user, so its real uid is ours.
 fake_process() {
@@ -80,12 +83,12 @@ remove_process() {
 # init, not systemd, so only the pid check stops the walk; fusermount3 is an
 # unrelated root process for this user that must not get in the way.
 fake_process 1 0 init 0 "" /sbin/init
-printf 'Name:\tinit\nUid:\t0\t0\t0\t0\n' >"$OMARCHY_PROC_PATH/1/status"
-fake_process 900 1 systemd "$UID" /usr/lib/systemd/systemd /usr/lib/systemd/systemd --user
+printf 'Name:\tinit\nUid:\t%s\t0\t0\t0\n' $((UID + 1)) >"$OMARCHY_PROC_PATH/1/status"
+fake_process 900 1 systemd "$unprivileged" /usr/lib/systemd/systemd /usr/lib/systemd/systemd --user
 fake_process 950 900 fusermount3 0 "" fusermount3 -o rw,nosuid /run/user/doc
-fake_process 1000 900 foot "$UID" /usr/bin/foot foot
-fake_process 1001 1000 bash "$UID" /usr/bin/bash -bash
-fake_process 1002 1001 omarchy-update "$UID" /usr/bin/bash /bin/bash /usr/share/omarchy/bin/omarchy-update
+fake_process 1000 900 foot "$unprivileged" /usr/bin/foot foot
+fake_process 1001 1000 bash "$unprivileged" /usr/bin/bash -bash
+fake_process 1002 1001 omarchy-update "$unprivileged" /usr/bin/bash /bin/bash /usr/share/omarchy/bin/omarchy-update
 fake_process 1003 1002 pkexec 0 "" pkexec --user root --disable-internal-agent /usr/bin/pacman -Syu --noconfirm
 
 expect_json "/usr/bin/pacman -Syu --noconfirm" \
@@ -101,12 +104,12 @@ expect_chain "/usr/bin/id" "foot" "caller skips -u and its value"
 
 # A process named pkexec that isn't running as root, and a setuid program
 # another account started through a symlink named pkexec.
-fake_process 2000 1000 pkexec "$UID" "" pkexec /usr/bin/pacman -Syu --noconfirm
+fake_process 2000 1000 pkexec "$unprivileged" "" pkexec /usr/bin/pacman -Syu --noconfirm
 fake_process 2001 1000 pkexec 0 "" pkexec -u root /usr/bin/pacman -Syu --noconfirm
 printf 'Name:\tpkexec\nUid:\t%s\t0\t0\t0\n' $((UID + 1)) >"$OMARCHY_PROC_PATH/2001/status"
 expect_chain "/usr/bin/pacman -Syu --noconfirm" "omarchy-update ← bash ← foot" "caller only counts processes running as root for this user"
 
-fake_process 1100 1000 bash "$UID" /usr/bin/bash bash -c "pkexec --keep-cwd true"
+fake_process 1100 1000 bash "$unprivileged" /usr/bin/bash bash -c "pkexec --keep-cwd true"
 fake_process 1101 1100 pkexec 0 "" pkexec --keep-cwd true
 expect_json "/usr/bin/true" '{"requestedBy":"bash ← foot","command":"/usr/bin/true","shortened":false}' \
   "caller matches the program polkit shows against the bare name pkexec was given"
@@ -223,16 +226,16 @@ done
 
 # A replaced executable, a parent whose executable can't be read, and a comm
 # with ") " in it.
-fake_process 3001 900 foot "$UID" /usr/bin/foot foot
-fake_process 3002 3001 "odd) name" "$UID" /usr/bin/odd odd
+fake_process 3001 900 foot "$unprivileged" /usr/bin/foot foot
+fake_process 3002 3001 "odd) name" "$unprivileged" /usr/bin/odd odd
 fake_process 3003 3002 sudo 0 "" sudo /usr/share/omarchy/bin/omarchy-update
-fake_process 3004 3003 omarchy-update "$UID" "/usr/bin/bash (deleted)" /bin/bash /usr/share/omarchy/bin/omarchy-update
+fake_process 3004 3003 omarchy-update "$unprivileged" "/usr/bin/bash (deleted)" /bin/bash /usr/share/omarchy/bin/omarchy-update
 fake_process 3005 3004 pkexec 0 "" pkexec /usr/bin/journalctl
 expect_chain "/usr/bin/journalctl" "omarchy-update ← sudo ← odd ← foot" "caller names replaced and unreadable executables and parses odd comms"
 
-fake_process 4001 900 p1 "$UID" /usr/bin/p1 p1
+fake_process 4001 900 p1 "$unprivileged" /usr/bin/p1 p1
 for level in 2 3 4 5 6 7; do
-  fake_process $((4000 + level)) $((3999 + level)) "p$level" "$UID" "/usr/bin/p$level" "p$level"
+  fake_process $((4000 + level)) $((3999 + level)) "p$level" "$unprivileged" "/usr/bin/p$level" "p$level"
 done
 fake_process 4008 4007 pkexec 0 "" pkexec /usr/bin/lsblk
 expect_chain "/usr/bin/lsblk" "p7 ← p6 ← p5 ← p4 ← p3" "caller walks at most five parents"
@@ -244,35 +247,35 @@ fake_process 7100 1 pkexec 0 "" pkexec /usr/bin/whoami
 expect_chain "/usr/bin/whoami" "" "caller names nobody for a pkexec whose parent is pid 1"
 
 long=$(printf 'x%.0s' {1..60})
-fake_process 6001 900 sh "$UID" /usr/bin/bash /bin/sh $'/tmp/evil\n\xe2\x80\xaename'
-fake_process 6002 6001 sh "$UID" /usr/bin/bash /bin/sh $'/tmp/evil\n\xe2\x80\xaename'
-fake_process 6003 6002 sh "$UID" /usr/bin/bash /bin/sh "/tmp/$long"
+fake_process 6001 900 sh "$unprivileged" /usr/bin/bash /bin/sh $'/tmp/evil\n\xe2\x80\xaename'
+fake_process 6002 6001 sh "$unprivileged" /usr/bin/bash /bin/sh $'/tmp/evil\n\xe2\x80\xaename'
+fake_process 6003 6002 sh "$unprivileged" /usr/bin/bash /bin/sh "/tmp/$long"
 fake_process 6004 6003 pkexec 0 "" pkexec /usr/bin/systemctl restart sshd
 expect_chain "/usr/bin/systemctl restart sshd" "${long:0:40}… ← evilname" "caller strips control and bidi characters, cuts long names and collapses repeats"
 
-fake_process 7200 900 sh "$UID" /usr/bin/bash /bin/sh $'/opt/p\xe2\x80\x8fq\xe2\x80\xaa\xe2\x80\xadr\xe2\x81\xa0\xe2\x81\xa9\x7fs'
+fake_process 7200 900 sh "$unprivileged" /usr/bin/bash /bin/sh $'/opt/p\xe2\x80\x8fq\xe2\x80\xaa\xe2\x80\xadr\xe2\x81\xa0\xe2\x81\xa9\x7fs'
 fake_process 7201 7200 pkexec 0 "" pkexec /usr/bin/loginctl
 expect_chain "/usr/bin/loginctl" "pqrs" "caller strips characters from each hidden range"
 
 forty=$(printf 'z%.0s' {1..40})
 forty_one=$(printf 'y%.0s' {1..41})
-fake_process 7300 900 sh "$UID" /usr/bin/bash /bin/sh "/opt/$forty"
-fake_process 7301 7300 sh "$UID" /usr/bin/bash /bin/sh "/opt/$forty_one"
+fake_process 7300 900 sh "$unprivileged" /usr/bin/bash /bin/sh "/opt/$forty"
+fake_process 7301 7300 sh "$unprivileged" /usr/bin/bash /bin/sh "/opt/$forty_one"
 fake_process 7302 7301 pkexec 0 "" pkexec /usr/bin/timedatectl
 expect_chain "/usr/bin/timedatectl" "${forty_one:0:40}… ← $forty" "caller keeps a 40-character name and cuts a 41-character one"
 
 # pkexec's --disable-internal-agent is skipped, a Python script is named after
 # the script, and a parent whose name comes out empty is left out.
-fake_process 7400 1000 ghost "$UID" / ghost
-fake_process 7401 7400 python3 "$UID" /usr/bin/python3.13 /usr/bin/python3 /opt/tool.py
+fake_process 7400 1000 ghost "$unprivileged" / ghost
+fake_process 7401 7400 python3 "$unprivileged" /usr/bin/python3.13 /usr/bin/python3 /opt/tool.py
 fake_process 7402 7401 pkexec 0 "" pkexec --disable-internal-agent --keep-cwd /usr/bin/busctl
 expect_chain "/usr/bin/busctl" "tool.py ← foot" "caller names Python scripts and leaves out empty names"
 
 # Whatever the caller's locale: every hidden kind goes, other multibyte text
 # stays, and the cut counts characters.
 cjk=$(printf '\xe6\x97\xa5%.0s' {1..45})
-fake_process 7001 900 sh "$UID" /usr/bin/bash /bin/sh $'/opt/a\xd8\x9c\xe6\x97\xa5\xe2\x80\x8b\xf0\x9f\x98\x80\xe2\x81\xa6\xc3\xa9\xef\xbb\xbf\xc2\x85\xe2\x80\xa8b'
-fake_process 7002 7001 sh "$UID" /usr/bin/bash /bin/sh "/opt/$cjk"
+fake_process 7001 900 sh "$unprivileged" /usr/bin/bash /bin/sh $'/opt/a\xd8\x9c\xe6\x97\xa5\xe2\x80\x8b\xf0\x9f\x98\x80\xe2\x81\xa6\xc3\xa9\xef\xbb\xbf\xc2\x85\xe2\x80\xa8b'
+fake_process 7002 7001 sh "$unprivileged" /usr/bin/bash /bin/sh "/opt/$cjk"
 fake_process 7003 7002 pkexec 0 "" pkexec /usr/bin/hostnamectl
 LC_ALL=C expect_chain "/usr/bin/hostnamectl" "$(printf '\xe6\x97\xa5%.0s' {1..40})… ← a"$'\xe6\x97\xa5\xf0\x9f\x98\x80\xc3\xa9'"b" \
   "caller keeps other multibyte text and cuts by characters in any locale"
@@ -280,8 +283,8 @@ LC_ALL=C expect_chain "/usr/bin/hostnamectl" "$(printf '\xe6\x97\xa5%.0s' {1..40
 # A process can make its arguments as long as the kernel allows; the lookup must
 # still finish quickly.
 huge=$(printf 'h%.0s' {1..131000})
-fake_process 8000 900 python3 "$UID" /usr/bin/python3.13 python3 "/opt/$huge"
-fake_process 8001 8000 python3 "$UID" /usr/bin/python3.13 python3 "/opt/$huge"
+fake_process 8000 900 python3 "$unprivileged" /usr/bin/python3.13 python3 "/opt/$huge"
+fake_process 8001 8000 python3 "$unprivileged" /usr/bin/python3.13 python3 "/opt/$huge"
 fake_process 8002 8001 pkexec 0 "" pkexec /usr/bin/dmesg
 expect_chain "/usr/bin/dmesg" "${huge:0:40}…" "caller handles huge process names quickly"
 
