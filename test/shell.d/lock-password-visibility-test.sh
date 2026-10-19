@@ -18,6 +18,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The copy and cut guard lives in a Keys.onPressed handler, and this repo has no
+# key-injection harness and no qmltestrunner, so the QML fixture cannot
+# drive a shortcut into it. This is a structural tripwire over the source, not
+# behavioural proof: it catches the guard being deleted or disconnected, not the
+# guard failing to swallow the key. Each condition is checked together with an
+# accept that has no closing brace between it and the condition, because a
+# plain substring search would also be satisfied by a comment naming it.
+# selectByMouse needs no check here: the fixture reads the live property.
+lock_view="$ROOT/shell/plugins/lock/LockView.qml"
+missing=""
+
+for guard in Copy Cut; do
+  rg -Uq "event\\.matches\\(StandardKey\\.$guard\\)[^}]*?event\\.accepted = true" "$lock_view" ||
+    missing+=" StandardKey.$guard with an accept"
+done
+
+[[ -z $missing ]] ||
+  fail "lock password visibility keeps a copy and cut guard on the field" "LockView.qml no longer has:$missing"
+pass "lock password visibility keeps a copy and cut guard on the field"
+
 require_compositor "lock password visibility test"
 
 if ! command -v quickshell >/dev/null 2>&1; then
@@ -71,23 +91,3 @@ if ! jq -e '.ok == true' "$result" >/dev/null; then
 fi
 
 pass "lock password visibility keeps the password out of reach"
-
-# The copy and cut guard lives in a Keys.onPressed handler, and this repo has no
-# key-injection harness and no qmltestrunner, so the QML fixture above cannot
-# drive a shortcut into it. This is a structural tripwire over the source, not
-# behavioural proof: it catches the guard being deleted or disconnected, not the
-# guard failing to swallow the key. Each condition is checked together with an
-# accept that has no closing brace between it and the condition, because a
-# plain substring search would also be satisfied by a comment naming it.
-# selectByMouse needs no check here: the fixture reads the live property.
-lock_view="$ROOT/shell/plugins/lock/LockView.qml"
-missing=""
-
-for guard in Copy Cut; do
-  rg -Uq "event\\.matches\\(StandardKey\\.$guard\\)[^}]*?event\\.accepted = true" "$lock_view" ||
-    missing+=" StandardKey.$guard with an accept"
-done
-
-[[ -z $missing ]] ||
-  fail "lock password visibility keeps a copy and cut guard on the field" "LockView.qml no longer has:$missing"
-pass "lock password visibility keeps a copy and cut guard on the field"

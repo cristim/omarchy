@@ -108,6 +108,40 @@ ShellRoot {
           view.clearPassword()
           root.assertTrue(view.passwordVisible === false, "clearPassword re-masks, got visible " + view.passwordVisible)
 
+          // The eye is a Text with a MouseArea child, and the other checks set
+          // passwordVisible directly, so only this one proves the button works.
+          view.passwordText = "hunter2"
+          var toggle = findByObjectName(view, "passwordVisibilityToggle")
+          root.assertTrue(toggle !== null, "the visibility toggle exposes an objectName")
+          var toggleArea = toggle ? findFirstByTest(toggle, function(node) { return node instanceof MouseArea }) : null
+          root.assertTrue(toggleArea !== null, "the visibility toggle has a click target")
+          if (toggleArea) {
+            root.assertTrue(toggleArea.enabled && toggleArea.visible && toggleArea.width > 0 && toggleArea.height > 0,
+              "the eye click target is enabled, visible and has an area")
+            toggleArea.clicked(null)
+            root.assertTrue(view.passwordVisible === true && input.echoMode === TextInput.Normal,
+              "clicking the eye reveals the password, got visible " + view.passwordVisible)
+            toggleArea.clicked(null)
+            root.assertTrue(view.passwordVisible === false && input.echoMode === TextInput.Password,
+              "clicking the eye again re-masks the password, got visible " + view.passwordVisible)
+          }
+
+          // Submitting has to hand over the original text, then leave the field
+          // empty and masked even when it was revealed.
+          var submitted = []
+          var recordSubmit = function(password) { submitted.push(password) }
+          view.submitPassword.connect(recordSubmit)
+          view.passwordText = "hunter2"
+          view.passwordVisible = true
+          input.accepted()
+          view.submitPassword.disconnect(recordSubmit)
+          root.assertTrue(submitted.length === 1 && submitted[0] === "hunter2",
+            "submitting emits the typed password once, got " + JSON.stringify(submitted))
+          root.assertTrue(input.text === "" && view.passwordText === "",
+            "submitting empties the field, got " + JSON.stringify(input.text))
+          root.assertTrue(view.passwordVisible === false && input.echoMode === TextInput.Password,
+            "submitting re-masks the field, got visible " + view.passwordVisible)
+
           // Mouse selection is the other half of the clipboard exposure, and
           // Qt copies a selection to the primary clipboard on mouse release.
           root.assertTrue(input.selectByMouse === false, "the field refuses mouse selection, got " + input.selectByMouse)
