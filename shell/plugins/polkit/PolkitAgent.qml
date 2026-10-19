@@ -517,7 +517,7 @@ Item {
           text: root.explaining ? I18n.t("polkit.asking").arg(root.agentName)
             : root.explainError !== "" ? I18n.t("polkit.retryHint").arg(root.explainError)
             : I18n.t("polkit.askHint").arg(root.agentName)
-          color: root.explainError !== "" ? Color.polkit.textError : root.accent
+          color: root.explainError !== "" ? Commons.Color.polkit.textError : root.accent
           opacity: root.explaining ? 0.6 : 1
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
