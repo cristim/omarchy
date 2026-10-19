@@ -277,8 +277,11 @@ Item {
         }
       }
 
-      Column {
-        id: header
+      // On a short screen the card is clamped below what the header needs; the
+      // header scrolls inside the space above the password row instead of
+      // running underneath it.
+      Flickable {
+        id: headerView
         visible: root.hasHeader
         anchors.top: parent.top
         anchors.left: parent.left
@@ -286,59 +289,69 @@ Item {
         anchors.topMargin: card.contentTopInset
         anchors.rightMargin: card.contentRightInset
         anchors.leftMargin: card.contentLeftInset
-        spacing: Style.space(8)
+        height: Math.max(0, Math.min(header.implicitHeight, card.height - card.contentTopInset - card.contentBottomInset - (root.fieldHeight - card.borderTop - card.borderBottom) - root.headerSpacing))
+        contentWidth: width
+        contentHeight: header.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          text: root.request.title
-          color: root.foreground
-          opacity: 0.6
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.Wrap
-          maximumLineCount: 3
-          elide: Text.ElideRight
-        }
+        Column {
+          id: header
+          width: headerView.width
+          spacing: Style.space(8)
 
-        Rectangle {
-          visible: root.hasCommand
-          width: parent.width
-          height: commandFlow.implicitHeight + Style.space(8) * 2
-          radius: root.cornerRadius
-          color: Util.alpha(root.foreground, 0.06)
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            text: root.request.title
+            color: root.foreground
+            opacity: 0.6
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.Wrap
+            maximumLineCount: 3
+            elide: Text.ElideRight
+          }
 
-          // The program stays on the first line; its arguments follow on the
-          // same line when they fit and wrap below it when they don't. The
-          // arguments are never cut off: this is what the user is approving,
-          // and pkexec already caps the command line at about 80 bytes.
-          Flow {
-            id: commandFlow
-            x: Style.space(10)
-            y: Style.space(8)
-            width: parent.width - Style.space(10) * 2
-            spacing: Style.space(8)
+          Rectangle {
+            visible: root.hasCommand
+            width: parent.width
+            height: commandFlow.implicitHeight + Style.space(8) * 2
+            radius: root.cornerRadius
+            color: Util.alpha(root.foreground, 0.06)
 
-            Text {
-              textFormat: Text.PlainText
-              width: Math.min(implicitWidth, commandFlow.width)
-              text: root.request.program
-              color: root.accent
-              font.family: Style.fontFamily
-              font.pixelSize: Style.font.body
-              font.bold: true
-              wrapMode: Text.WrapAnywhere
-            }
+            // The program stays on the first line; its arguments follow on the
+            // same line when they fit and wrap below it when they don't. The
+            // arguments are never cut off: this is what the user is approving,
+            // and pkexec already caps the command line at about 80 bytes.
+            Flow {
+              id: commandFlow
+              x: Style.space(10)
+              y: Style.space(8)
+              width: parent.width - Style.space(10) * 2
+              spacing: Style.space(8)
 
-            Text {
-              textFormat: Text.PlainText
-              visible: text !== ""
-              width: Math.min(implicitWidth, commandFlow.width)
-              text: root.request.args
-              color: root.foreground
-              font.family: Style.fontFamily
-              font.pixelSize: Style.font.body
-              wrapMode: Text.WrapAnywhere
+              Text {
+                textFormat: Text.PlainText
+                width: Math.min(implicitWidth, commandFlow.width)
+                text: root.request.program
+                color: root.accent
+                font.family: Style.fontFamily
+                font.pixelSize: Style.font.body
+                font.bold: true
+                wrapMode: Text.WrapAnywhere
+              }
+
+              Text {
+                textFormat: Text.PlainText
+                visible: text !== ""
+                width: Math.min(implicitWidth, commandFlow.width)
+                text: root.request.args
+                color: root.foreground
+                font.family: Style.fontFamily
+                font.pixelSize: Style.font.body
+                wrapMode: Text.WrapAnywhere
+              }
             }
           }
         }
